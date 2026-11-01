@@ -1,0 +1,7 @@
+node_modules/
+public/assets/app.css
+.env
+.idea/
+.vscode/
+coverage/
+.DS_Store

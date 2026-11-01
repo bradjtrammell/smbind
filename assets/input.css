@@ -1,0 +1,56 @@
+@import "tailwindcss";
+@source "../src";
+@source "../public";
+@theme {
+  --color-canvas: #f6f6f1;
+  --color-ink: #203b32;
+  --color-accent: #11744e;
+  --color-moss: #7ea891;
+  --color-line: #e1e8e0;
+  --color-warn: #b6543d;
+  --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
+}
+@layer base {
+  body { min-width: 360px; }
+  :focus-visible { outline: 3px solid #bd7039; outline-offset: 3px; }
+  ::selection { background: #c1e1c8; color: #203b32; }
+  button { cursor: pointer; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+}
+@layer components {
+  .brand-mark { display:inline-flex; align-items:center; justify-content:center; width:46px; height:46px; border-radius:12px 3px 12px 3px; background:#11744e; font-size:27px; font-weight:900; letter-spacing:-.12em; color:white; padding-right:5px; }
+  .brand-mark span { color:#b9dc86; }
+  .nav-link { display:flex; align-items:center; gap:12px; padding:11px 13px; border-radius:6px; font-size:14px; font-weight:600; text-decoration:none; transition: background-color 170ms, color 170ms; }
+  .nav-glyph { width:22px; font-size:19px; text-align:center; font-weight:400; }
+  .btn-primary { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:44px; padding:10px 19px; border-radius:5px; background:#11744e; color:#fff; font-size:14px; font-weight:700; text-decoration:none; transition:background-color 170ms; }
+  .btn-primary:hover { background:#0b593b; }
+  .btn-secondary { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:44px; padding:10px 19px; border:1px solid #b9cbbd; border-radius:5px; background:#fff; color:#203b32; font-size:14px; font-weight:700; text-decoration:none; }
+  .btn-secondary:hover { background:#eaf1e9; }
+  .btn-danger { display:inline-flex; align-items:center; justify-content:center; min-height:42px; padding:10px 16px; border-radius:5px; background:#b6543d; color:white; font-size:14px; font-weight:700; }
+  .btn-danger:hover { background:#8f3929; }
+  .field { display:flex; flex-direction:column; gap:7px; min-width:0; }
+  .field-label { color:#203b32; font-size:13px; font-weight:700; }
+  .field-input { display:block; width:100%; min-height:44px; padding:9px 12px; border:1px solid #afc4b5; border-radius:5px; background:#fff; color:#203b32; font-size:15px; }
+  .field-input:focus { outline:3px solid #c8e8d4; outline-offset:1px; border-color:#11744e; }
+  .field-hint { color:#63756b; font-size:12px; line-height:1.5; }
+  .surface { overflow:hidden; border:1px solid #e1e8e0; background:white; border-radius:6px; box-shadow:0 2px 7px #173a2508; }
+  .surface-title { padding:20px 24px; border-bottom:1px solid #e1e8e0; }
+  .data-table { border-collapse:collapse; min-width:570px; width:100%; text-align:left; }
+  .data-table th { padding:13px 18px; background:#f2f5f0; color:#51685a; font-size:12px; font-weight:700; }
+  .data-table td { padding:17px 18px; border-top:1px solid #e6ebe5; font-size:14px; color:#203b32; vertical-align:middle; }
+  .data-table tbody tr:hover { background:#f9fbf8; }
+  .status-dirty { color:#9b5a13; font-weight:700; font-size:12px; }
+  .status-clean { color:#11744e; font-weight:700; font-size:12px; }
+  .empty-state { border:1px dashed #c6d5c8; text-align:center; border-radius:6px; background:white; padding:54px 24px; }
+  .empty-symbol { display:block; font-size:38px; line-height:1; color:#76a08a; margin-bottom:20px; }
+  .notice { margin-bottom:26px; padding:15px 17px; border-left:4px solid; border-radius:3px; font-size:14px; font-weight:600; }
+  .notice-success { background:#e7f5e9; color:#135d36; border-color:#11744e; }
+  .notice-error { background:#fff0eb; color:#8e2f22; border-color:#b6543d; }
+  .skip-link { position:absolute; top:-100px; left:14px; z-index:100; padding:10px 15px; background:#fff; color:#203b32; font-weight:700; }
+  .skip-link:focus { top:8px; }
+  .metric-value { font-size:clamp(1.7rem,3vw,2.5rem); line-height:1.1; font-weight:800; letter-spacing:-.06em; font-variant-numeric:tabular-nums; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration:0.01ms !important; animation-duration:0.01ms !important; }
+}
