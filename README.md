@@ -2,6 +2,8 @@
 
 **Authoritative DNS management — rebuilt for modern PHP.**
 
+**Current state: 1.0.0-dev.1 (development; not production qualified).** The historical code has been removed from the working tree, but the replacement still requires end-to-end DNS, database, and browser verification. Track the complete per-file replacement ledger in [Rebuild inventory](docs/REBUILD_INVENTORY.md).
+
 > [!IMPORTANT]
 > **A clean-slate rebuild.** This is a new application targeting PHP 8.2+, PDO MySQL, Tailwind CSS 4, and BIND 9. It does not read or migrate the historical SMBind tables or deployment files.
 
