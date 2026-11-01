@@ -1,0 +1,35 @@
+name: SMBind verification
+on:
+  push:
+    branches: [master, 'rebuild/**']
+  pull_request:
+
+jobs:
+  php:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.2', '8.3', '8.4', '8.5']
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          extensions: pdo_mysql
+      - name: Lint PHP
+        run: find src public bin tests -type f -name '*.php' -print -exec php -l {} \;
+      - name: DNS tests
+        run: php tests/run.php
+  css:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - run: npm run build
+      - run: test -s public/assets/app.css
