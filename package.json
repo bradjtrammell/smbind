@@ -1,0 +1,15 @@
+{
+  "name": "smbind-ui",
+  "private": true,
+  "version": "1.0.0",
+  "description": "SMBind 1.0 production Tailwind CSS build",
+  "scripts": {
+    "build": "tailwindcss -i ./assets/input.css -o ./public/assets/app.css --minify",
+    "dev": "tailwindcss -i ./assets/input.css -o ./public/assets/app.css --watch"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "4.3.3",
+    "tailwindcss": "4.3.3"
+  },
+  "engines": { "node": ">=20" }
+}
