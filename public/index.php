@@ -75,6 +75,14 @@ function handlePost(): never
         redirect('login');
     }
     $actor = requireUser();
+    // Re-check database role on every POST: a revoked administrator must not retain session privileges.
+    $authoritative = one('SELECT id,username,role FROM users WHERE id=?', [$actor['id']]);
+    if (!$authoritative) {
+        unset($_SESSION['user']);
+        throw new RuntimeException('This account has been removed.', 403);
+    }
+    $actor = ['id' => (int) $authoritative['id'], 'username' => $authoritative['username'], 'role' => $authoritative['role']];
+    $_SESSION['user'] = $actor;
     switch ($action) {
         case 'create_zone':
             requireAdmin();
@@ -107,7 +115,7 @@ function handlePost(): never
                 }
             }
             query(
-                'UPDATE zones SET primary_ns=?,contact=?,default_ttl=?,refresh=?,retry=?,expire=?,minimum=?,owner_id=?,dirty=1 WHERE id=?',
+                'UPDATE zones SET primary_ns=?,contact=?,default_ttl=?,refresh=?,retry=?,expire=?,minimum=?,owner_id=?,dirty=1,revision=revision+1 WHERE id=?',
                 [$primary, $contact, ...$values, $ownerId, $z['id']]
             );
             auditSafe('zone.update', (int) $z['id']);
@@ -134,21 +142,22 @@ function handlePost(): never
             if ($conflict) {
                 throw new InvalidArgumentException('CNAME records cannot coexist with another record at the same host.');
             }
+            $recordValues = [$data['host'], $data['type'], $data['value'], $data['ttl'], $data['priority'], $data['weight'], $data['port']];
             db()->beginTransaction();
             try {
                 if ($recordId) {
                     query(
                         'UPDATE records SET host=?,type=?,value=?,ttl=?,priority=?,weight=?,port=? WHERE id=? AND zone_id=?',
-                        [...array_values($data), $recordId, $z['id']]
+                        [...$recordValues, $recordId, $z['id']]
                     );
                 } else {
                     query(
                         'INSERT INTO records (host,type,value,ttl,priority,weight,port,zone_id) VALUES (?,?,?,?,?,?,?,?)',
-                        [...array_values($data), $z['id']]
+                        [...$recordValues, $z['id']]
                     );
                     $recordId = (int) db()->lastInsertId();
                 }
-                query('UPDATE zones SET dirty=1 WHERE id=?', [$z['id']]);
+                query('UPDATE zones SET dirty=1,revision=revision+1 WHERE id=?', [$z['id']]);
                 db()->commit();
             } catch (Throwable $error) {
                 db()->rollBack();
@@ -166,7 +175,7 @@ function handlePost(): never
             db()->beginTransaction();
             try {
                 query('DELETE FROM records WHERE id=? AND zone_id=?', [$recordId, $z['id']]);
-                query('UPDATE zones SET dirty=1 WHERE id=?', [$z['id']]);
+                query('UPDATE zones SET dirty=1,revision=revision+1 WHERE id=?', [$z['id']]);
                 db()->commit();
             } catch (Throwable $error) {
                 db()->rollBack();
@@ -320,7 +329,7 @@ function page(string $route): array
                 $content .= $actor['role'] === 'admin' ?
                     Ui::post('publish', '<button class="btn-primary" type="submit">Validate &amp; publish DNS</button>', '', 'Publish all configured DNS zones and reload BIND?') :
                     '<p class="text-sm text-ink/65">An administrator must publish these changes.</p>';
-                $body .= '<div class="surface p-6 border-l-4 border-l-amber-600 mb-8">' . $content . '</div></div>';
+                $body .= '<div class="surface p-6 border-l-4 border-l-amber-600 mb-8">' . $content . '</div>';
             }
             $recent = query('SELECT z.id,z.name,z.dirty,COUNT(r.id) AS record_count FROM zones z LEFT JOIN records r ON r.zone_id=z.id GROUP BY z.id,z.name,z.dirty ORDER BY z.updated_at DESC LIMIT 8')->fetchAll();
             $rows = '';
