@@ -23,6 +23,37 @@ jobs:
         run: find src public bin tests -type f -name '*.php' -print -exec php -l {} \;
       - name: DNS tests
         run: php tests/run.php
+  integration:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: local-ci-root-only
+          MYSQL_DATABASE: smbind_ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -plocal-ci-root-only"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      SMBIND_CI_DATABASE: smbind_ci
+      SMBIND_DSN: "mysql:host=127.0.0.1;port=3306;dbname=smbind_ci;charset=utf8mb4"
+      SMBIND_DB_USER: root
+      SMBIND_DB_PASS: local-ci-root-only
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_mysql
+          coverage: none
+      - name: Install BIND validation utilities
+        run: sudo apt-get update -qq && sudo apt-get install -y bind9-utils
+      - name: Exercise PDO, real BIND validation, publish, rollback and removal
+        run: php tests/integration.php
   css:
     runs-on: ubuntu-latest
     steps:
