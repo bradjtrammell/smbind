@@ -352,7 +352,11 @@ function page(string $route): array
             }
             $new = $actor['role'] === 'admin' ? Ui::button('+ New zone', route('zone-new')) : '';
             return ['DNS zones', Ui::heading('DNS zones', 'All zones managed by this SMBind instance.', $new) .
-                ($html ? '<div class="surface">' . Ui::table(['Zone', 'Owner', 'Records', 'SOA serial', 'Status'], $html) . '</div>' :
+                ($html ? '<div class="surface">' .
+                    '<div class="border-b border-line bg-white px-5 py-4"><label class="flex max-w-lg flex-col gap-2 text-sm font-semibold text-ink" for="zone-search">' .
+                    '<span>Filter DNS zones</span><input class="field-input" id="zone-search" type="search" autocomplete="off" placeholder="Search names, owners or status" data-table-search="zone-results" aria-controls="zone-results"></label></div>' .
+                    '<div id="zone-results">' . Ui::table(['Zone', 'Owner', 'Records', 'SOA serial', 'Status'], $html) . '</div>' .
+                    '<p class="hidden p-6 text-sm text-ink/65" id="zone-search-empty" role="status">No zones match your search.</p></div>' :
                     Ui::empty('Your zone inventory is empty', 'Add a zone, create its records, and publish the configuration.', $new))];
 
         case 'zone-new':

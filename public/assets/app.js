@@ -16,3 +16,21 @@ document.addEventListener('submit', (event) => {
     // POST action is represented by a separate hidden input.
   }
 });
+
+document.querySelectorAll('[data-table-search]').forEach((input) => {
+  if (!(input instanceof HTMLInputElement)) return;
+  const root = document.getElementById(input.dataset.tableSearch || '');
+  if (!root) return;
+  const rows = Array.from(root.querySelectorAll('tbody tr'));
+  const empty = document.getElementById('zone-search-empty');
+  input.addEventListener('input', () => {
+    const term = input.value.trim().toLocaleLowerCase();
+    let shown = 0;
+    for (const row of rows) {
+      const matches = (row.textContent || '').toLocaleLowerCase().includes(term);
+      row.hidden = !matches;
+      if (matches) shown++;
+    }
+    if (empty) empty.classList.toggle('hidden', shown > 0);
+  });
+});
