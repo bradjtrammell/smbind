@@ -46,7 +46,7 @@ $hash = password_hash('Test-only-administrator-password-123', PASSWORD_DEFAULT);
 query('INSERT INTO users (username,password_hash,role) VALUES (?,?,?)', ['ciadmin', $hash, 'admin']);
 verify(password_verify('Test-only-administrator-password-123', (string) $db->query('SELECT password_hash FROM users')->fetchColumn()), 'PDO account/password storage');
 
-$user = (int) $db->lastInsertId();
+$user = (int) $db->query("SELECT id FROM users WHERE username='ciadmin'")->fetchColumn();
 query(
     'INSERT INTO zones (name,owner_id,primary_ns,contact,serial) VALUES (?,?,?,?,?)',
     ['example.com', $user, 'ns1.example.com', 'hostmaster.example.com', 1]
