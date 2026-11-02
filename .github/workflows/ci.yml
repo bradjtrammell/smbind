@@ -1,7 +1,7 @@
 name: SMBind verification
 on:
   push:
-    branches: [master, 'rebuild/**']
+    branches: [master, 'rebuild/**', 'feat/**', 'fix/**']
   pull_request:
 
 jobs:
@@ -71,3 +71,26 @@ jobs:
       - run: npm install --no-audit --no-fund
       - run: npm run build
       - run: test -s public/assets/app.css
+      - name: Validate JavaScript syntax
+        run: node --check public/assets/app.js
+      - name: Package application including compiled styles
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(tr -d '\r\n' < VERSION)"
+          mkdir -p dist/smbind
+          cp -R public src db bin docs ops LICENSE README.md VERSION .env.example dist/smbind/
+          test -s dist/smbind/public/assets/app.css
+          test -f dist/smbind/public/index.php
+          (cd dist && zip -qr "smbind-$version.zip" smbind)
+          (cd dist && sha256sum "smbind-$version.zip" > "smbind-$version.zip.sha256")
+          unzip -t "dist/smbind-$version.zip" | tail -1
+      - name: Upload packaged application and checksum
+        uses: actions/upload-artifact@v4
+        with:
+          name: smbind-compiled-app
+          path: |
+            dist/smbind-*.zip
+            dist/smbind-*.zip.sha256
+          if-no-files-found: error
+          retention-days: 30
