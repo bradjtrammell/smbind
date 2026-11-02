@@ -221,6 +221,18 @@ checkHttp($record !== null && $record['value'] === '192.0.2.51',
     'Record values persisted to correct PDO columns');
 
 if ($record) {
+    $conflict = sendHttp('/', 'POST', [
+        'action' => 'save_record', '_token' => $token, 'zone_id' => (string) $zoneId,
+        'host' => 'www', 'type' => 'CNAME', 'value' => 'other.smoke.example.com',
+        'ttl' => '3600', 'priority' => '0', 'weight' => '0', 'port' => '0',
+    ], $cookie);
+    checkHttp($conflict['status'] === 303 &&
+        (int) \Smbind\query(
+            'SELECT COUNT(*) FROM records WHERE zone_id=? AND host=?',
+            [$zoneId, 'www']
+        )->fetchColumn() === 1,
+        'CNAME collision is rejected and existing A record is preserved');
+
     $delete = sendHttp('/', 'POST', [
         'action' => 'delete_record', '_token' => $token,
         'zone_id' => (string) $zoneId, 'record_id' => (string) $record['id'],

@@ -26,6 +26,25 @@ function requestZone(): array
     return $result;
 }
 
+/**
+ * Must be called with an active transaction. All DNS record mutations for a
+ * zone take this row lock before collision checks or writes. Recheck ownership
+ * after obtaining the lock, so a concurrent reassignment revokes editor access.
+ */
+function lockEditableZone(int $id): void
+{
+    if (!db()->inTransaction()) {
+        throw new RuntimeException('A database transaction is required for DNS edits.');
+    }
+    $current = one('SELECT id,owner_id FROM zones WHERE id=? FOR UPDATE', [$id]);
+    if (!$current) {
+        throw new RuntimeException('DNS zone no longer exists.', 404);
+    }
+    if (!canEdit($current)) {
+        throw new RuntimeException('DNS zone edit access was revoked.', 403);
+    }
+}
+
 function auditSafe(string $event, ?int $zoneId = null, array $detail = []): void
 {
     audit($event, $zoneId, $detail);
@@ -131,20 +150,32 @@ function handlePost(): never
         case 'save_record':
             $z = requestZone();
             $data = Dns::validateRecord($_POST);
-            $recordId = isset($_POST['record_id']) && $_POST['record_id'] !== '' ? intId($_POST['record_id']) : null;
-            if ($recordId && !one('SELECT id FROM records WHERE id=? AND zone_id=?', [$recordId, $z['id']])) {
-                throw new RuntimeException('Record was not found in this zone.', 404);
-            }
-            $conflict = one(
-                'SELECT id FROM records WHERE zone_id=? AND host=? AND (type=? OR ?=?) AND (? IS NULL OR id<>?) LIMIT 1',
-                [$z['id'], $data['host'], 'CNAME', $data['type'], 'CNAME', $recordId, $recordId ?? 0]
-            );
-            if ($conflict) {
-                throw new InvalidArgumentException('CNAME records cannot coexist with another record at the same host.');
-            }
-            $recordValues = [$data['host'], $data['type'], $data['value'], $data['ttl'], $data['priority'], $data['weight'], $data['port']];
+            $recordId = isset($_POST['record_id']) && $_POST['record_id'] !== '' ?
+                intId($_POST['record_id']) : null;
+            $recordValues = [
+                $data['host'], $data['type'], $data['value'], $data['ttl'],
+                $data['priority'], $data['weight'], $data['port'],
+            ];
             db()->beginTransaction();
             try {
+                lockEditableZone((int) $z['id']);
+                if ($recordId && !one(
+                    'SELECT id FROM records WHERE id=? AND zone_id=?',
+                    [$recordId, $z['id']]
+                )) {
+                    throw new RuntimeException('Record was not found in this zone.', 404);
+                }
+                // This check must execute under the parent-zone row lock.
+                // Competing writers cannot both pass a CNAME collision check.
+                $conflict = one(
+                    'SELECT id FROM records WHERE zone_id=? AND host=? AND (type=? OR ?=?) AND (? IS NULL OR id<>?) LIMIT 1',
+                    [$z['id'], $data['host'], 'CNAME', $data['type'], 'CNAME', $recordId, $recordId ?? 0]
+                );
+                if ($conflict) {
+                    throw new InvalidArgumentException(
+                        'CNAME records cannot coexist with another record at the same host.'
+                    );
+                }
                 if ($recordId) {
                     query(
                         'UPDATE records SET host=?,type=?,value=?,ttl=?,priority=?,weight=?,port=? WHERE id=? AND zone_id=?',
@@ -163,17 +194,20 @@ function handlePost(): never
                 db()->rollBack();
                 throw $error;
             }
-            auditSafe('record.save', (int) $z['id'], ['record_id' => $recordId, 'type' => $data['type']]);
+            auditSafe('record.save', (int) $z['id'], [
+                'record_id' => $recordId, 'type' => $data['type'],
+            ]);
             flash('success', 'DNS record saved. Publish to apply it to BIND.');
             redirect('zone', ['id' => $z['id']]);
         case 'delete_record':
             $z = requestZone();
             $recordId = intId($_POST['record_id'] ?? '0');
-            if (!one('SELECT id FROM records WHERE id=? AND zone_id=?', [$recordId, $z['id']])) {
-                throw new RuntimeException('Record was not found.', 404);
-            }
             db()->beginTransaction();
             try {
+                lockEditableZone((int) $z['id']);
+                if (!one('SELECT id FROM records WHERE id=? AND zone_id=?', [$recordId, $z['id']])) {
+                    throw new RuntimeException('Record was not found.', 404);
+                }
                 query('DELETE FROM records WHERE id=? AND zone_id=?', [$recordId, $z['id']]);
                 query('UPDATE zones SET dirty=1,revision=revision+1 WHERE id=?', [$z['id']]);
                 db()->commit();
