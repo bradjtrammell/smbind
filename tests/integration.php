@@ -120,6 +120,19 @@ try {
     verify(str_contains($original, 'TLSA 3 1 1 ' . strtoupper(str_repeat('ab', 32))), 'BIND validates TLSA');
     verify((int) $db->query('SELECT dirty FROM zones')->fetchColumn() === 0, 'Successful publish clears dirty state');
     verify((int) $db->query('SELECT COUNT(*) FROM published_zones')->fetchColumn() === 1, 'Managed zone manifest saved');
+    // Refuse to touch a managed zone whose previous contents cannot be read.
+    chmod($zoneFile, 0000);
+    $refusedBackup = false;
+    try {
+        $publisher->publish();
+    } catch (RuntimeException) {
+        $refusedBackup = true;
+    } finally {
+        chmod($zoneFile, 0640);
+    }
+    verify($refusedBackup && file_get_contents($zoneFile) === $original,
+        'Unreadable managed zone backup causes fail-closed publication');
+
 
     query("UPDATE records SET value='192.0.2.50' WHERE zone_id=? AND host='ns1'", [$id]);
     query('UPDATE zones SET dirty=1, revision=revision+1 WHERE id=?', [$id]);

@@ -254,24 +254,34 @@ final class Publisher
             }
             return count($zones);
         } catch (Throwable $error) {
-            // Restore the previously published data and attempt to reload it.
+            // Restore every changed path; do not silently disguise a failed
+            // rollback as a successful recovery from the original error.
+            $rollbackFailures = [];
             foreach (array_reverse($written) as $path) {
-                if ($backup[$path] === null) {
-                    @unlink($path);
-                } else {
-                    try {
+                try {
+                    if ($backup[$path] === null) {
+                        if (file_exists($path) && !unlink($path)) {
+                            throw new RuntimeException('Cannot remove newly published file.');
+                        }
+                    } else {
                         $this->atomic($path, $backup[$path]);
-                    } catch (Throwable) {
-                        // The original exception is still reported below.
                     }
+                } catch (Throwable $restoreError) {
+                    $rollbackFailures[] = basename($path) . ': ' . $restoreError->getMessage();
                 }
             }
             if ($written !== []) {
                 try {
                     $this->command([$rndc, 'reload']);
-                } catch (Throwable) {
-                    // Manual intervention may be required; preserve original error.
+                } catch (Throwable $reloadError) {
+                    $rollbackFailures[] = 'BIND rollback reload: ' . $reloadError->getMessage();
                 }
+            }
+            if ($rollbackFailures !== []) {
+                $message = 'DNS publication failed and rollback requires manual intervention: ' .
+                    implode('; ', $rollbackFailures);
+                error_log('SMBind critical: ' . $message);
+                throw new RuntimeException($message, 0, $error);
             }
             throw $error;
         } finally {
