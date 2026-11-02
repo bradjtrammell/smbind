@@ -14,7 +14,7 @@
 - PDO prepared statements with MySQL 8 or compatible MariaDB.
 - Administrator/editor/viewer roles and per-zone ownership.
 - Password hashing, session regeneration, CSRF defenses, and login throttling.
-- Two-stage publishing: validate every zone with named-checkzone, replace zone files atomically, validate BIND configuration, then rndc reload. Original files are restored on failure.
+- Two-stage publishing: validate every zone with named-checkzone, replace zone files atomically, validate BIND configuration, then rndc reload. Original files are restored on failure. Deleted zones are tracked in a publication manifest, and the dashboard reports pending deletions even if no zones remain.
 - Activity audit, team management, and password changes.
 
 **Not included:** legacy database migration, DNSSEC signing, authoritative secondary replication, SSO, multi-tenant billing, and a REST API. This development build requires end-to-end qualification on an isolated BIND installation before production use.
@@ -88,7 +88,7 @@ php tests/run.php
 npm run build
 ```
 
-GitHub CI lints on PHP 8.2–8.5, runs deterministic DNS validation tests, and compiles the UI. An additional disposable MySQL 8.4 job uses real BIND zone/configuration validators while simulating RNDC success/failure to test publishing, file rollback, and deleted-zone cleanup. These checks do **not** replace a live authoritative DNS reload test, real browser/a11y testing, production permission testing, or install/upgrade qualification.
+GitHub CI lints on PHP 8.2–8.5, runs deterministic DNS validation tests, and compiles the UI. It also exercises login, sessions, CSRF rejection, creation and deletion through the real PHP HTTP entry point against disposable MySQL. An additional disposable MySQL 8.4 job uses real BIND zone/configuration validators while simulating RNDC success/failure to test publishing, file rollback, and deleted-zone cleanup. These checks do **not** replace a live authoritative DNS reload test, real browser/a11y testing, production permission testing, or install/upgrade qualification.
 
 ## Design
 
