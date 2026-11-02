@@ -443,7 +443,10 @@ function page(string $route): array
                     '</td><td>' . e($r['priority']) . '</td><td>' . $delete . '</td></tr>';
             }
             $body = Ui::heading($z['name'], 'Zone owner: ' . $z['owner_name'] . ' · Serial ' . $z['serial'],
-                Ui::button('All zones', route('zones'), true)) .
+                '<div class="flex flex-wrap gap-3">' .
+                Ui::button('All zones', route('zones'), true) .
+                Ui::button('Export zone file', route('zone-export', ['id' => $z['id']]), true) .
+                '</div>') .
                 '<div class="mb-7 flex flex-wrap gap-4 items-center">' . Ui::status((bool) $z['dirty']) .
                 ($editable ? Ui::button('Edit zone settings', route('zone-edit', ['id' => $z['id']]), true) : '') . '</div>' .
                 Ui::panel('Resource records', $rows ? Ui::table(['Host', 'Type', 'Value', 'TTL', 'Priority', ''], $rows) :
@@ -581,6 +584,23 @@ try {
     }
     if ($route === 'login' && user()) {
         redirect('dashboard');
+    }
+    if ($route === 'zone-export') {
+        requireUser();
+        $exportZone = zone(intId($_GET['id'] ?? '0'));
+        $exportRecords = query(
+            'SELECT host,type,value,ttl,priority,weight,port FROM records WHERE zone_id=? ORDER BY host,type,id',
+            [$exportZone['id']]
+        )->fetchAll();
+        if ((int) $exportZone['dirty'] !== 0) {
+            $exportZone['serial'] = Dns::nextSerial((int) $exportZone['serial']);
+        }
+        $zoneFile = Dns::render($exportZone, $exportRecords);
+        header('Content-Type: text/plain; charset=UTF-8');
+        header('Content-Disposition: attachment; filename="' . Dns::domain($exportZone['name']) . '.zone"');
+        header('X-Content-Type-Options: nosniff');
+        echo $zoneFile;
+        exit;
     }
     [$title, $body] = page($route);
     Ui::layout($title, $body, user(), $flash);

@@ -195,6 +195,11 @@ checkHttp($restore['status'] === 303 &&
 $zonePage = sendHttp('/?route=zone&id=' . $zoneId, 'GET', [], $cookie);
 checkHttp($zonePage['status'] === 200 && str_contains($zonePage['body'], 'smoke.example.com'),
     'New zone page renders');
+$export = sendHttp('/?route=zone-export&id=' . $zoneId, 'GET', [], $cookie);
+checkHttp($export['status'] === 200 &&
+    str_contains($export['body'], '$ORIGIN smoke.example.com.') &&
+    str_contains($export['body'], '@ IN SOA ns1.smoke.example.com.'),
+    'Authenticated zone export renders complete BIND-format zone file');
 $token = tokenFrom($zonePage['body']);
 
 $add = sendHttp('/', 'POST', [

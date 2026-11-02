@@ -2,7 +2,7 @@
 
 **Authoritative DNS management — rebuilt for modern PHP.**
 
-**Current state: 1.0.0-dev.2 (development; not production qualified).** The historical code has been removed from the working tree, but the replacement still requires end-to-end DNS, database, and browser verification. Track the complete per-file replacement ledger in [Rebuild inventory](docs/REBUILD_INVENTORY.md).
+**Current state: 1.0.0-dev.3 on `dev` (development; not production qualified).** `master` continues to distribute the verified `v1.0.0-dev.2` prerelease until these changes are promoted. The historical code has been removed from the working tree, but the replacement still requires end-to-end DNS, database, and browser verification. Track the complete per-file replacement ledger in [Rebuild inventory](docs/REBUILD_INVENTORY.md).
 
 > [!IMPORTANT]
 > **A clean-slate rebuild.** This is a new application targeting PHP 8.2+, PDO MySQL, Tailwind CSS 4, and BIND 9. It does not read or migrate the historical SMBind tables or deployment files.
@@ -26,6 +26,7 @@ Temporary `feat/*`, `fix/*`, and `rebuild/*` branches are not part of the active
 - Two-stage publishing: validate every zone with named-checkzone, replace zone files atomically, validate BIND configuration, then rndc reload. Original files are restored on failure. Deleted zones are tracked in a publication manifest, and the dashboard reports pending deletions even if no zones remain.
 - Activity audit, team management, and password changes.
 - Read-only **Review publication** screen and CLI plan showing new, changed, and retired DNS zones before an administrator applies and reloads the BIND configuration.
+- Authenticated BIND-format zone export from the zone detail page, including the next SOA serial for pending edits.
 
 **Not included:** legacy database migration, DNSSEC signing, authoritative secondary replication, SSO, multi-tenant billing, and a REST API. This development build requires end-to-end qualification on an isolated BIND installation before production use.
 
@@ -97,16 +98,28 @@ Temporary `feat/*`, `fix/*`, and `rebuild/*` branches are not part of the active
 
    Correct any failures, then sign in. Create zones, add records, and select **Validate & publish DNS**. SMBind changes DNS serving only after an explicit publication action.
 
+### Updating an existing v1.0.0-dev.2 installation
+
+The historical PHP 5-era SMBind database is **not supported**. If you have already installed the **new SMBind v1.0.0-dev.2** prerelease, first take a verified MySQL backup. Before running the dev.3 application code, apply its additive schema upgrade once:
+
+```bash
+mysql -u root -p smbind < db/upgrade-dev2-to-dev3.sql
+php bin/doctor.php
+php bin/plan.php
+```
+
+The upgrade adds `users.is_active`, defaulting to `1`, preserving existing accounts and roles. Do **not** apply it again to an already-upgraded database or to the old SMBind PHP 5 schema. Fresh installations use `db/schema.sql` directly. `bin/plan.php` is read-only and prints pending zone changes as JSON.
+
 ### Packaged deployment and checksum
 
 The passing CI pipeline also publishes a **versioned GitHub prerelease** under [Releases](https://github.com/bradjtrammell/smbind/releases) after all PHP matrix, MySQL/BIND/HTTP integration and CSS jobs succeed on `master`. Development builds remain marked **prerelease**, not stable. The CI `css` job assembles `smbind-<version>.zip` and `smbind-<version>.zip.sha256` with `public/assets/app.css` already compiled. Download both from the successful workflow's **Artifacts** section. Verify integrity *before extracting*:
 
 ```bash
-sha256sum -c smbind-1.0.0-dev.2.zip.sha256
-unzip -t smbind-1.0.0-dev.2.zip
+sha256sum -c smbind-1.0.0-dev.3.zip.sha256
+unzip -t smbind-1.0.0-dev.3.zip
 ```
 
-The ZIP contains the web application, configuration template, schema, command-line tools, documentation, and a PHP-FPM/Nginx example. It does not provision a database, alter DNS configuration, or create credentials automatically. **The GitHub Actions artifact is a verified build artifact, not evidence of successful deployment on your host.**
+The next ZIP, published only after promotion of dev.3 to `master`, contains the web application, configuration template, schema upgrade, command-line tools, documentation, and a PHP-FPM/Nginx example. It does not provision a database, alter DNS configuration, or create credentials automatically. **The GitHub Actions artifact is a verified build artifact, not evidence of successful deployment on your host.**
 
 ## Permissions
 
