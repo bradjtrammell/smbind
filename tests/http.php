@@ -167,6 +167,14 @@ checkHttp($viewerPreview['status'] === 403 && !str_contains($viewerPreview['body
 
 // Suspend an account and prove both active sessions and fresh logins are denied.
 $viewer = \Smbind\one("SELECT id FROM users WHERE username='civiewer'");
+$selfSuspend = sendHttp('/', 'POST', [
+    'action' => 'set_user_active', '_token' => $token,
+    'user_id' => (string) $owner['id'], 'active' => '0',
+], $cookie);
+checkHttp($selfSuspend['status'] === 303 &&
+    (int) \Smbind\one('SELECT is_active FROM users WHERE id=?', [$owner['id']])['is_active'] === 1,
+    'Administrator cannot suspend their own account');
+
 $suspend = sendHttp('/', 'POST', [
     'action' => 'set_user_active', '_token' => $token,
     'user_id' => (string) $viewer['id'], 'active' => '0',

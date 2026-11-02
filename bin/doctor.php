@@ -85,6 +85,14 @@ try {
         $statement = $connection->query('SELECT COUNT(*) FROM ' . $table);
         $report($statement !== false, 'Database table accessible: ' . $table);
     }
+    // SELECT is evaluated even when users is empty, catching a dev.2 schema
+    // installed beneath newer PHP code before that code can serve traffic.
+    try {
+        $report($connection->query('SELECT is_active FROM users LIMIT 1') !== false,
+            'Dev.3 user access schema installed');
+    } catch (Throwable) {
+        $report(false, 'Dev.3 user access schema missing; apply db/upgrade-dev2-to-dev3.sql once if upgrading');
+    }
 } catch (Throwable $error) {
     $report(false, 'Database connectivity/schema: ' . $error->getMessage());
 }
