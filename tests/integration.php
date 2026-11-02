@@ -65,7 +65,7 @@ if (!mkdir($path, 0700) || !mkdir($zones, 0700) || !mkdir($config, 0700)) {
 }
 $include = $config . '/smbind-zones.conf';
 $namedConf = $config . '/named.conf';
-file_put_contents($include, "// generated fixture\n");
+file_put_contents($include, '');
 file_put_contents($namedConf, 'options { directory "' . $path . '"; recursion no; };' . "\n" .
     'include "' . $include . '";' . "\n");
 $okR = $path . '/rndc-ok';
@@ -92,6 +92,22 @@ $zoneFile = $zones . '/example.com.zone';
 
 try {
     $publisher = new Publisher($db);
+
+    // Pre-existing unmanaged files must never be silently overwritten.
+    $foreign = "; External DNS manager owns this file\n";
+    file_put_contents($zoneFile, $foreign);
+    $blockedZone = false;
+    try { $publisher->publish(); } catch (RuntimeException) { $blockedZone = true; }
+    verify($blockedZone && file_get_contents($zoneFile) === $foreign, 'External zone files are protected');
+    unlink($zoneFile);
+
+    file_put_contents($include, '// Maintained by an external DNS tool');
+    $blockedInclude = false;
+    try { $publisher->publish(); } catch (RuntimeException) { $blockedInclude = true; }
+    verify($blockedInclude && file_get_contents($include) === '// Maintained by an external DNS tool',
+        'Unmanaged BIND include files are protected');
+    file_put_contents($include, '');
+
     verify($publisher->publish() === 1, 'Valid zone publishes');
     verify(is_file($zoneFile), 'Zone file created');
     $original = (string) file_get_contents($zoneFile);

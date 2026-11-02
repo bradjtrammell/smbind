@@ -2,7 +2,7 @@
 
 **Authoritative DNS management — rebuilt for modern PHP.**
 
-**Current state: 1.0.0-dev.1 (development; not production qualified).** The historical code has been removed from the working tree, but the replacement still requires end-to-end DNS, database, and browser verification. Track the complete per-file replacement ledger in [Rebuild inventory](docs/REBUILD_INVENTORY.md).
+**Current state: 1.0.0-dev.2 (development; not production qualified).** The historical code has been removed from the working tree, but the replacement still requires end-to-end DNS, database, and browser verification. Track the complete per-file replacement ledger in [Rebuild inventory](docs/REBUILD_INVENTORY.md).
 
 > [!IMPORTANT]
 > **A clean-slate rebuild.** This is a new application targeting PHP 8.2+, PDO MySQL, Tailwind CSS 4, and BIND 9. It does not read or migrate the historical SMBind tables or deployment files.
@@ -13,7 +13,7 @@
 - DNS zone configuration and editing, including SOA parameters and A, AAAA, CNAME, MX, TXT, NS, PTR and SRV records.
 - PDO prepared statements with MySQL 8 or compatible MariaDB.
 - Administrator/editor/viewer roles and per-zone ownership.
-- Password hashing, session regeneration, CSRF defenses, and login throttling.
+- Argon2id password hashing, session regeneration, CSRF defenses, and login throttling.
 - Two-stage publishing: validate every zone with named-checkzone, replace zone files atomically, validate BIND configuration, then rndc reload. Original files are restored on failure. Deleted zones are tracked in a publication manifest, and the dashboard reports pending deletions even if no zones remain.
 - Activity audit, team management, and password changes.
 
@@ -23,10 +23,10 @@
 
 | Component | Requirements |
 | --- | --- |
-| PHP | 8.2+ with pdo_mysql, sessions, filter |
+| PHP | 8.2+ with pdo_mysql, Argon2id password hashing, sessions, filter |
 | Database | MySQL 8.0+ or compatible MariaDB |
 | DNS | BIND 9; named-checkzone, named-checkconf, rndc |
-| UI assets | Node.js 20+, Tailwind CSS 4.3.3 |
+| UI assets | Production ZIP includes compiled CSS and JS; building from source requires Node.js 20+ and pinned Tailwind CSS 4.3.3 |
 | HTTP server | Nginx or Apache, document root **public/** only |
 
 > [!CAUTION]
@@ -58,18 +58,45 @@
    unset SMBIND_INITIAL_PASSWORD
    ```
 
-5. Compile the production Tailwind asset:
+5. **Choose a distribution.** The GitHub Actions `SMBind verification` workflow builds and uploads a **complete application ZIP with compiled CSS** and its SHA-256 checksum. For a deployment using that ZIP, extract it to the application directory and **skip the Node/Tailwind step**. For a source checkout, compile the stylesheet:
 
    ```bash
    npm install --no-audit --no-fund
    npm run build
    ```
 
-6. Set the HTTP server document root to `public/`. For local **development only**, use `php -S 127.0.0.1:8080 -t public`.
+6. Set the HTTP server document root to `public/`. For Nginx deployments, [`ops/nginx-loopback.conf`](ops/nginx-loopback.conf) is a loopback-only PHP-FPM virtual-host starting point; review PHP-FPM socket and installation path before enabling. For local **development only**, use `php -S 127.0.0.1:8080 -t public`.
 
-7. Create `SMBIND_ZONE_DIR` outside the web root. Permit the PHP publishing identity to atomically replace files there and to replace `SMBIND_INCLUDE_FILE` (also outside the web root). Set up tightly scoped access to RNDC keys. Never give the web worker unrestricted root/sudo permissions. **Review permissions on every deployment.** The include file must exist and be readable by BIND. Add `include "/etc/bind/smbind-zones.conf";` to the correct BIND `named.conf` once, substituting your configured absolute path. Do not point SMBind at a configuration file shared with manually managed zones.
+7. **Prepare dedicated publisher-owned directories.** On Ubuntu/Debian with Nginx/PHP-FPM running as `www-data` and BIND running as group `bind`, a concrete example is:
 
-8. Sign in. Create zones, add records, and select **Validate & publish DNS**. SMBind only changes DNS serving after the explicit publication action.
+   ```bash
+   sudo install -d -o www-data -g bind -m 2770 /var/cache/bind/smbind
+   sudo install -d -o www-data -g bind -m 2770 /etc/bind/smbind-managed
+   sudo install -o www-data -g bind -m 0640 /dev/null /etc/bind/smbind-managed/zones.conf
+   ```
+
+   Ubuntu's default BIND AppArmor policy permits zone files in `/var/cache/bind/` and configuration under `/etc/bind/`. Do not place zone files under arbitrary paths without explicitly reviewing AppArmor; unexpected permission denials can prevent BIND from loading otherwise valid zones. The `2` in `2770` sets setgid on the directories so newly staged and atomically renamed files inherit group `bind`; `0640` files remain readable by the authoritative daemon. **Confirm your actual PHP-FPM and BIND service identities before using these commands.** Keep the zone directory and managed include dedicated to SMBind only, and configure `SMBIND_INCLUDE_FILE=/etc/bind/smbind-managed/zones.conf`. Add `include "/etc/bind/smbind-managed/zones.conf";` to BIND's main `named.conf` once.
+
+   Keep `SMBIND_ZONE_DIR` outside the web root. Permit the PHP publishing identity to atomically replace files there and to replace `SMBIND_INCLUDE_FILE` (also outside the web root). Set up tightly scoped access to RNDC keys. Never give the web worker unrestricted root/sudo permissions. **Review permissions on every deployment.** The include file must exist and be readable by BIND. Ensure the generated include is explicitly present exactly once in the correct BIND `named.conf`. Do not point SMBind at a configuration file shared with manually managed zones. The include file must initially be **empty** or already contain an SMBind-generated header; the zone directory must be dedicated, since existing non-SMBind zone files are rejected to avoid destructive overwrites.
+
+8. Run the **non-destructive preflight** in the same environment as the PHP process:
+
+   ```bash
+   php bin/doctor.php
+   ```
+
+   Correct any failures, then sign in. Create zones, add records, and select **Validate & publish DNS**. SMBind changes DNS serving only after an explicit publication action.
+
+### Packaged deployment and checksum
+
+The passing CI pipeline also publishes a **versioned GitHub prerelease** under [Releases](https://github.com/bradjtrammell/smbind/releases) after all PHP matrix, MySQL/BIND/HTTP integration and CSS jobs succeed on `master`. Development builds remain marked **prerelease**, not stable. The CI `css` job assembles `smbind-<version>.zip` and `smbind-<version>.zip.sha256` with `public/assets/app.css` already compiled. Download both from the successful workflow's **Artifacts** section. Verify integrity *before extracting*:
+
+```bash
+sha256sum -c smbind-1.0.0-dev.2.zip.sha256
+unzip -t smbind-1.0.0-dev.2.zip
+```
+
+The ZIP contains the web application, configuration template, schema, command-line tools, documentation, and a PHP-FPM/Nginx example. It does not provision a database, alter DNS configuration, or create credentials automatically. **The GitHub Actions artifact is a verified build artifact, not evidence of successful deployment on your host.**
 
 ## Permissions
 
@@ -88,7 +115,7 @@ php tests/run.php
 npm run build
 ```
 
-GitHub CI lints on PHP 8.2–8.5, runs deterministic DNS validation tests, and compiles the UI. It also exercises login, sessions, CSRF rejection, creation and deletion through the real PHP HTTP entry point against disposable MySQL. An additional disposable MySQL 8.4 job uses real BIND zone/configuration validators while simulating RNDC success/failure to test publishing, file rollback, and deleted-zone cleanup. These checks do **not** replace a live authoritative DNS reload test, real browser/a11y testing, production permission testing, or install/upgrade qualification.
+GitHub CI lints on PHP 8.2–8.5, runs deterministic DNS validation tests, and compiles the UI. It also exercises login, sessions, CSRF rejection, creation and deletion through the real PHP HTTP entry point against disposable MySQL. Additional disposable MySQL 8.4 integration jobs on PHP 8.2 and 8.4 use real BIND zone/configuration validators while simulating RNDC success/failure to test publishing, file rollback, and deleted-zone cleanup. Additionally, CI starts an **actual isolated BIND 9 named daemon**, publishes and modifies a zone, executes real RNDC reload, verifies live authoritative answers using dig, and confirms zone deletion removes its DNS answer. These checks do **not** replace host-specific PHP-FPM/Nginx integration, browser/accessibility testing, live production permissions/AppArmor acceptance, or an operational rollback drill.
 
 ## Design
 

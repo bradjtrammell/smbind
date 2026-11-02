@@ -49,8 +49,8 @@ function authenticate(): void
         throw new InvalidArgumentException('Invalid credentials or account temporarily locked. Please try again later.');
     }
     query('UPDATE users SET failed_logins = 0, locked_until = NULL WHERE id = ?', [$row['id']]);
-    if (password_needs_rehash($row['password_hash'], PASSWORD_DEFAULT)) {
-        query('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash($password, PASSWORD_DEFAULT), $row['id']]);
+    if (password_needs_rehash($row['password_hash'], PASSWORD_ARGON2ID)) {
+        query('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash($password, PASSWORD_ARGON2ID), $row['id']]);
     }
     session_regenerate_id(true);
     unset($_SESSION['csrf']);
@@ -200,7 +200,7 @@ function handlePost(): never
                 !in_array($role, ['admin', 'editor', 'viewer'], true)) {
                 throw new InvalidArgumentException('Enter a valid username, role, and password of at least 14 characters.');
             }
-            query('INSERT INTO users (username,password_hash,role) VALUES (?,?,?)', [$name, password_hash($password, PASSWORD_DEFAULT), $role]);
+            query('INSERT INTO users (username,password_hash,role) VALUES (?,?,?)', [$name, password_hash($password, PASSWORD_ARGON2ID), $role]);
             auditSafe('user.create', null, ['username' => $name, 'role' => $role]);
             flash('success', 'Team member created.');
             redirect('users');
@@ -226,7 +226,7 @@ function handlePost(): never
                 strlen($replacement) < 14 || strlen($replacement) > 1024) {
                 throw new InvalidArgumentException('Current password is incorrect, or new password is shorter than 14 characters.');
             }
-            query('UPDATE users SET password_hash=? WHERE id=?', [password_hash($replacement, PASSWORD_DEFAULT), $actor['id']]);
+            query('UPDATE users SET password_hash=? WHERE id=?', [password_hash($replacement, PASSWORD_ARGON2ID), $actor['id']]);
             session_regenerate_id(true);
             auditSafe('user.password');
             flash('success', 'Password updated successfully.');
