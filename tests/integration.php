@@ -65,7 +65,7 @@ if (!mkdir($path, 0700) || !mkdir($zones, 0700) || !mkdir($config, 0700)) {
 }
 $include = $config . '/smbind-zones.conf';
 $namedConf = $config . '/named.conf';
-file_put_contents($include, "// generated fixture\n");
+file_put_contents($include, '');
 file_put_contents($namedConf, 'options { directory "' . $path . '"; recursion no; };' . "\n" .
     'include "' . $include . '";' . "\n");
 $okR = $path . '/rndc-ok';

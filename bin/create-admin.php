@@ -19,7 +19,7 @@ if (strlen($password) < 14 || strlen($password) > 1024) {
     exit(2);
 }
 try {
-    $hash = password_hash($password, PASSWORD_DEFAULT);
+    $hash = password_hash($password, PASSWORD_ARGON2ID);
     $stmt = db()->prepare('INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)');
     $stmt->execute([$argv[1], $hash, 'admin']);
     fwrite(STDOUT, "Administrator created: " . $argv[1] . "\n");

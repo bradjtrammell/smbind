@@ -9,6 +9,9 @@ use RuntimeException;
 if (PHP_VERSION_ID < 80200) {
     throw new RuntimeException('SMBind requires PHP 8.2 or newer.');
 }
+if (!defined('PASSWORD_ARGON2ID') || !in_array(PASSWORD_ARGON2ID, password_algos(), true)) {
+    throw new RuntimeException('SMBind requires PHP with Argon2id password hashing support.');
+}
 
 require_once __DIR__ . '/Dns.php';
 require_once __DIR__ . '/Publisher.php';

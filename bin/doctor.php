@@ -30,6 +30,7 @@ $report = static function (bool $ok, string $what, bool $warning = false) use (&
 
 echo "SMBind deployment preflight — non-destructive\n\n";
 $report(PHP_VERSION_ID >= 80200, "PHP >= 8.2 (" . PHP_VERSION . ")");
+$report(defined('PASSWORD_ARGON2ID') && in_array(PASSWORD_ARGON2ID, password_algos(), true), 'Argon2id password hashing available');
 foreach (['pdo_mysql', 'session', 'filter', 'json'] as $extension) {
     $report(extension_loaded($extension), "PHP extension: " . $extension);
 }

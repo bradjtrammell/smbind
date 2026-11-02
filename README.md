@@ -13,7 +13,7 @@
 - DNS zone configuration and editing, including SOA parameters and A, AAAA, CNAME, MX, TXT, NS, PTR and SRV records.
 - PDO prepared statements with MySQL 8 or compatible MariaDB.
 - Administrator/editor/viewer roles and per-zone ownership.
-- Password hashing, session regeneration, CSRF defenses, and login throttling.
+- Argon2id password hashing, session regeneration, CSRF defenses, and login throttling.
 - Two-stage publishing: validate every zone with named-checkzone, replace zone files atomically, validate BIND configuration, then rndc reload. Original files are restored on failure. Deleted zones are tracked in a publication manifest, and the dashboard reports pending deletions even if no zones remain.
 - Activity audit, team management, and password changes.
 
@@ -23,7 +23,7 @@
 
 | Component | Requirements |
 | --- | --- |
-| PHP | 8.2+ with pdo_mysql, sessions, filter |
+| PHP | 8.2+ with pdo_mysql, Argon2id password hashing, sessions, filter |
 | Database | MySQL 8.0+ or compatible MariaDB |
 | DNS | BIND 9; named-checkzone, named-checkconf, rndc |
 | UI assets | Production ZIP includes compiled CSS and JS; building from source requires Node.js 20+ and pinned Tailwind CSS 4.3.3 |
@@ -67,7 +67,7 @@
 
 6. Set the HTTP server document root to `public/`. For Nginx deployments, [`ops/nginx-loopback.conf`](ops/nginx-loopback.conf) is a loopback-only PHP-FPM virtual-host starting point; review PHP-FPM socket and installation path before enabling. For local **development only**, use `php -S 127.0.0.1:8080 -t public`.
 
-7. Create `SMBIND_ZONE_DIR` outside the web root. Permit the PHP publishing identity to atomically replace files there and to replace `SMBIND_INCLUDE_FILE` (also outside the web root). Set up tightly scoped access to RNDC keys. Never give the web worker unrestricted root/sudo permissions. **Review permissions on every deployment.** The include file must exist and be readable by BIND. Add `include "/etc/bind/smbind-zones.conf";` to the correct BIND `named.conf` once, substituting your configured absolute path. Do not point SMBind at a configuration file shared with manually managed zones.
+7. Create `SMBIND_ZONE_DIR` outside the web root. Permit the PHP publishing identity to atomically replace files there and to replace `SMBIND_INCLUDE_FILE` (also outside the web root). Set up tightly scoped access to RNDC keys. Never give the web worker unrestricted root/sudo permissions. **Review permissions on every deployment.** The include file must exist and be readable by BIND. Add `include "/etc/bind/smbind-zones.conf";` to the correct BIND `named.conf` once, substituting your configured absolute path. Do not point SMBind at a configuration file shared with manually managed zones. The include file must initially be **empty** or already contain an SMBind-generated header; the zone directory must be dedicated, since existing non-SMBind zone files are rejected to avoid destructive overwrites.
 
 8. Run the **non-destructive preflight** in the same environment as the PHP process:
 
