@@ -56,6 +56,10 @@ query('INSERT INTO records (zone_id,host,type,value,ttl,priority,weight,port) VA
     [$id, 'ns1', 'A', '192.0.2.10', 3600, 0, 0, 0]);
 query('INSERT INTO records (zone_id,host,type,value,ttl,priority,weight,port) VALUES (?,?,?,?,?,?,?,?)',
     [$id, '@', 'A', '192.0.2.11', 3600, 0, 0, 0]);
+query('INSERT INTO records (zone_id,host,type,value,ttl) VALUES (?,?,?,?,?)',
+    [$id, '@', 'CAA', '0 issue "letsencrypt.org"', 3600]);
+query('INSERT INTO records (zone_id,host,type,value,ttl) VALUES (?,?,?,?,?)',
+    [$id, '_443._tcp.www', 'TLSA', '3 1 1 ' . str_repeat('ab', 32), 3600]);
 
 $path = sys_get_temp_dir() . '/smbind-ci-' . bin2hex(random_bytes(6));
 $zones = $path . '/zones';
@@ -112,6 +116,8 @@ try {
     verify(is_file($zoneFile), 'Zone file created');
     $original = (string) file_get_contents($zoneFile);
     verify(str_contains($original, 'ns1 3600 IN A 192.0.2.10'), 'Real BIND validates generated zone');
+    verify(str_contains($original, 'CAA 0 issue "letsencrypt.org"'), 'BIND validates CAA');
+    verify(str_contains($original, 'TLSA 3 1 1 ' . strtoupper(str_repeat('ab', 32))), 'BIND validates TLSA');
     verify((int) $db->query('SELECT dirty FROM zones')->fetchColumn() === 0, 'Successful publish clears dirty state');
     verify((int) $db->query('SELECT COUNT(*) FROM published_zones')->fetchColumn() === 1, 'Managed zone manifest saved');
 

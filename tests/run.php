@@ -37,6 +37,15 @@ reject(fn () => Dns::validateRecord(['host'=>'@','type'=>'A','value'=>'999.999.1
 reject(fn () => Dns::validateRecord(['host'=>'@','type'=>'CNAME','value'=>'example.com']), 'Reject apex CNAME');
 reject(fn () => Dns::validateRecord(['host'=>'a','type'=>'TXT','value'=>"a\nb"]), 'Reject record newline');
 reject(fn () => Dns::validateRecord(['host'=>'_sip._tcp','type'=>'SRV','value'=>'sip.example.com','port'=>'65536']), 'Reject bad port');
+check(Dns::validateRecord(['host'=>'@','type'=>'CAA','value'=>'0 issue "letsencrypt.org"'])['value'] === '0 issue "letsencrypt.org"', 'CAA record accepted');
+reject(fn () => Dns::validateRecord(['host'=>'@','type'=>'CAA','value'=>'256 issue "example.com"']), 'CAA flags limited to 255');
+reject(fn () => Dns::validateRecord(['host'=>'@','type'=>'CAA','value'=>'0 issue "x" "inject"']), 'CAA quotation injection blocked');
+check(Dns::validateRecord(['host'=>'child','type'=>'DS','value'=>'12345 13 2 ' . str_repeat('ab', 32)])['value'] === '12345 13 2 ' . strtoupper(str_repeat('ab', 32)), 'DS SHA256 accepted');
+reject(fn () => Dns::validateRecord(['host'=>'child','type'=>'DS','value'=>'12345 13 2 deadbeef']), 'DS invalid digest length rejected');
+check(Dns::validateRecord(['host'=>'server','type'=>'SSHFP','value'=>'4 2 ' . str_repeat('ab', 32)])['type'] === 'SSHFP', 'SSHFP SHA256 accepted');
+reject(fn () => Dns::validateRecord(['host'=>'server','type'=>'SSHFP','value'=>'4 2 99']), 'SSHFP invalid length rejected');
+check(Dns::validateRecord(['host'=>'_443._tcp.www','type'=>'TLSA','value'=>'3 1 1 ' . str_repeat('ab', 32)])['type'] === 'TLSA', 'TLSA SHA256 accepted');
+reject(fn () => Dns::validateRecord(['host'=>'_443._tcp.www','type'=>'TLSA','value'=>'4 1 1 ' . str_repeat('ab', 32)]), 'TLSA invalid usage rejected');
 $zone = ['name'=>'example.com','primary_ns'=>'ns1.example.com','contact'=>'hostmaster.example.com',
     'serial'=>2026110101,'default_ttl'=>3600,'refresh'=>10800,'retry'=>3600,'expire'=>604800,'minimum'=>3600];
 $text = Dns::render($zone, [

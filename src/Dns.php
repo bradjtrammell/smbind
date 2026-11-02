@@ -7,7 +7,7 @@ use InvalidArgumentException;
 
 final class Dns
 {
-    public const TYPES = ['A', 'AAAA', 'CNAME', 'MX', 'TXT', 'NS', 'PTR', 'SRV'];
+    public const TYPES = ['A', 'AAAA', 'CAA', 'CNAME', 'DS', 'MX', 'SSHFP', 'TLSA', 'TXT', 'NS', 'PTR', 'SRV'];
 
     public static function domain(string $value): string
     {
@@ -82,6 +82,41 @@ final class Dns
         }
         if ($type === 'TXT' && preg_match('/[^\x20-\x7E]/', $value)) {
             throw new InvalidArgumentException('TXT records must contain printable ASCII characters.');
+        }
+        if ($type === 'CAA') {
+            if (!preg_match('/^([0-9]{1,3})\s+([a-zA-Z0-9-]{1,15})\s+"([^"\\\\\x00-\x1F\x7F]*)"$/D', $value, $parts) ||
+                (int) $parts[1] > 255) {
+                throw new InvalidArgumentException('CAA requires: flags tag "value" (flags 0–255).');
+            }
+            $value = (int) $parts[1] . ' ' . strtolower($parts[2]) . ' "' . $parts[3] . '"';
+        }
+        if ($type === 'DS') {
+            if (!preg_match('/^(\d{1,5})\s+(\d{1,3})\s+(\d{1,3})\s+([a-fA-F0-9]+)$/D', $value, $parts) ||
+                (int) $parts[1] > 65535 || (int) $parts[2] > 255 || (int) $parts[3] > 255 ||
+                strlen($parts[4]) % 2 !== 0) {
+                throw new InvalidArgumentException('DS requires: key tag, algorithm, digest type, even-length hexadecimal digest.');
+            }
+            $expected = [1 => 40, 2 => 64, 4 => 96];
+            if (isset($expected[(int) $parts[3]]) && strlen($parts[4]) !== $expected[(int) $parts[3]]) {
+                throw new InvalidArgumentException('DS digest has the wrong length for its digest type.');
+            }
+            $value = (int) $parts[1] . ' ' . (int) $parts[2] . ' ' . (int) $parts[3] . ' ' . strtoupper($parts[4]);
+        }
+        if ($type === 'SSHFP') {
+            if (!preg_match('/^(\d{1,3})\s+([12])\s+([a-fA-F0-9]+)$/D', $value, $parts) ||
+                (int) $parts[1] > 255 || strlen($parts[3]) !== ((int) $parts[2] === 1 ? 40 : 64)) {
+                throw new InvalidArgumentException('SSHFP requires: algorithm, fingerprint type, and SHA1/SHA256 hexadecimal fingerprint.');
+            }
+            $value = (int) $parts[1] . ' ' . $parts[2] . ' ' . strtoupper($parts[3]);
+        }
+        if ($type === 'TLSA') {
+            if (!preg_match('/^([0-3])\s+([01])\s+([012])\s+([a-fA-F0-9]+)$/D', $value, $parts) ||
+                strlen($parts[4]) % 2 !== 0 ||
+                ($parts[3] === '1' && strlen($parts[4]) !== 64) ||
+                ($parts[3] === '2' && strlen($parts[4]) !== 128)) {
+                throw new InvalidArgumentException('TLSA requires: usage selector matching-type hex-data with a valid digest length.');
+            }
+            $value = $parts[1] . ' ' . $parts[2] . ' ' . $parts[3] . ' ' . strtoupper($parts[4]);
         }
         $ttl = self::number($input['ttl'] ?? '3600', 60, 2147483647, 'TTL');
         $priority = self::number($input['priority'] ?? '0', 0, 65535, 'Priority');

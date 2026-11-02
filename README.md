@@ -19,7 +19,7 @@ Temporary `feat/*`, `fix/*`, and `rebuild/*` branches are not part of the active
 ## Features
 
 - Responsive Tailwind CSS operations console with clear navigation, searchable-in-browser zone tables, and keyboard-accessible forms.
-- DNS zone configuration and editing, including SOA parameters and A, AAAA, CNAME, MX, TXT, NS, PTR and SRV records.
+- DNS zone configuration and editing, including SOA parameters and A, AAAA, CAA, CNAME, DS, MX, SSHFP, TLSA, TXT, NS, PTR and SRV records.
 - PDO prepared statements with MySQL 8 or compatible MariaDB.
 - Administrator/editor/viewer roles and per-zone ownership.
 - Argon2id password hashing, session regeneration, CSRF defenses, and login throttling.
