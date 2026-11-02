@@ -155,6 +155,16 @@ checkHttp($viewerEdit['status'] === 303 &&
     \Smbind\one('SELECT id FROM records WHERE zone_id=? AND host=?', [$zoneId, 'unauthorized']) === null,
     'Viewer cannot modify DNS using crafted POST');
 
+$preview = sendHttp('/?route=publish-preview', 'GET', [], $cookie);
+checkHttp($preview['status'] === 200 && str_contains($preview['body'], 'Review DNS publication'),
+    'Administrator can view read-only publication plan');
+checkHttp(str_contains($preview['body'], 'Add new zone') &&
+    str_contains($preview['body'], 'smoke.example.com'),
+    'Read-only plan identifies newly created DNS zone');
+$viewerPreview = sendHttp('/?route=publish-preview', 'GET', [], $viewerCookie);
+checkHttp($viewerPreview['status'] === 403 && !str_contains($viewerPreview['body'], 'Planned changes'),
+    'Viewer cannot inspect admin-only publication plan');
+
 $zonePage = sendHttp('/?route=zone&id=' . $zoneId, 'GET', [], $cookie);
 checkHttp($zonePage['status'] === 200 && str_contains($zonePage['body'], 'smoke.example.com'),
     'New zone page renders');
@@ -192,6 +202,10 @@ checkHttp(str_contains($dashboard['body'], 'Unpublished changes') &&
     'Deleted-only zones remain visible as pending DNS changes');
 checkHttp(str_contains($dashboard['body'], 'Validate &amp; publish DNS'),
     'Dashboard exposes a working publication action for deleted-only zones');
+$deletedPlan = sendHttp('/?route=publish-preview', 'GET', [], $cookie);
+checkHttp(str_contains($deletedPlan['body'], 'Remove published zone') &&
+    str_contains($deletedPlan['body'], 'smoke.example.com'),
+    'Read-only plan identifies deletion even when no DNS zones remain');
 
 echo "SMBind HTTP smoke: {$assertions} checks; {$failed} failures.\n";
 exit($failed ? 1 : 0);

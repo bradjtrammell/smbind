@@ -85,6 +85,52 @@ final class Publisher
         return $bytes;
     }
 
+    /**
+     * Read-only change plan. No filesystem writes, validation commands or RNDC.
+     * Publishing always obtains a fresh snapshot; a preview is advisory.
+     *
+     * @return array{changes:list<array{name:string,action:string,records:int,serial:int}>,unchanged:int}
+     */
+    public function plan(): array
+    {
+        $published = $this->db->query('SELECT name FROM published_zones')->fetchAll(PDO::FETCH_COLUMN);
+        $known = array_fill_keys($published, true);
+        $zones = $this->db->query(
+            'SELECT z.id,z.name,z.serial,z.dirty,COUNT(r.id) AS records
+             FROM zones z LEFT JOIN records r ON r.zone_id = z.id
+             GROUP BY z.id,z.name,z.serial,z.dirty ORDER BY z.name'
+        )->fetchAll(PDO::FETCH_ASSOC);
+        $changes = [];
+        $unchanged = 0;
+        foreach ($zones as $zone) {
+            $name = (string) $zone['name'];
+            if (!isset($known[$name])) {
+                $action = 'create';
+            } elseif ((int) $zone['dirty'] !== 0) {
+                $action = 'update';
+            } else {
+                $action = 'unchanged';
+            }
+            if ($action === 'unchanged') {
+                $unchanged++;
+            } else {
+                $changes[] = [
+                    'name' => $name,
+                    'action' => $action,
+                    'records' => (int) $zone['records'],
+                    'serial' => (int) $zone['serial'],
+                ];
+            }
+            unset($known[$name]);
+        }
+        foreach (array_keys($known) as $name) {
+            $changes[] = ['name' => $name, 'action' => 'remove', 'records' => 0, 'serial' => 0];
+        }
+        usort($changes, static fn (array $a, array $b): int =>
+            strcmp($a['name'], $b['name']));
+        return ['changes' => $changes, 'unchanged' => $unchanged];
+    }
+
     public function publish(): int
     {
         $directory = rtrim(setting('SMBIND_ZONE_DIR'), '/');

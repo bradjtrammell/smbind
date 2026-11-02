@@ -25,6 +25,7 @@ Temporary `feat/*`, `fix/*`, and `rebuild/*` branches are not part of the active
 - Argon2id password hashing, session regeneration, CSRF defenses, and login throttling.
 - Two-stage publishing: validate every zone with named-checkzone, replace zone files atomically, validate BIND configuration, then rndc reload. Original files are restored on failure. Deleted zones are tracked in a publication manifest, and the dashboard reports pending deletions even if no zones remain.
 - Activity audit, team management, and password changes.
+- Read-only **Review publication** screen and CLI plan showing new, changed, and retired DNS zones before an administrator applies and reloads the BIND configuration.
 
 **Not included:** legacy database migration, DNSSEC signing, authoritative secondary replication, SSO, multi-tenant billing, and a REST API. This development build requires end-to-end qualification on an isolated BIND installation before production use.
 

@@ -329,7 +329,10 @@ function page(string $route): array
                 $content = '<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><h2 class="text-xl font-bold">Unpublished changes</h2>' .
                     '<p class="text-sm text-ink/65 mt-2">' . $edited . ' modified zone(s), ' . $removed . ' deleted zone(s) await validation and BIND reload.</p></div>';
                 $content .= $actor['role'] === 'admin' ?
-                    Ui::post('publish', '<button class="btn-primary" type="submit">Validate &amp; publish DNS</button>', '', 'Publish all configured DNS zones and reload BIND?') :
+                    '<div class="flex flex-wrap gap-3 items-center">' .
+                    Ui::button('Review publication', route('publish-preview'), true) .
+                    Ui::post('publish', '<button class="btn-primary" type="submit">Validate &amp; publish DNS</button>', '', 'Publish all configured DNS zones and reload BIND?') .
+                    '</div>' :
                     '<p class="text-sm text-ink/65">An administrator must publish these changes.</p>';
                 $body .= '<div class="surface p-6 border-l-4 border-l-amber-600 mb-8">' . $content . '</div>';
             }
@@ -343,6 +346,38 @@ function page(string $route): array
                 Ui::empty('No DNS zones yet', 'Create your first zone to begin managing DNS.', $action),
                 'Changes stay in the database until an administrator publishes them.');
             return ['Overview', $body];
+
+        case 'publish-preview':
+            requireAdmin();
+            $plan = (new Publisher(db()))->plan();
+            $changes = $plan['changes'];
+            $rows = '';
+            $descriptions = [
+                'create' => 'Add new zone',
+                'update' => 'Update existing zone',
+                'remove' => 'Remove published zone',
+            ];
+            foreach ($changes as $change) {
+                $rows .= '<tr><td class="font-bold">' . e($change['name']) .
+                    '</td><td>' . e($descriptions[$change['action']]) .
+                    '</td><td>' . (int) $change['records'] .
+                    '</td><td class="font-mono text-xs">' .
+                    ($change['serial'] ? e($change['serial']) : '—') . '</td></tr>';
+            }
+            $description = count($changes) . ' pending change(s); ' .
+                $plan['unchanged'] . ' unchanged zone(s).';
+            $content = Ui::heading('Review DNS publication',
+                'Inspect the next publication before applying changes to the authoritative server.',
+                Ui::button('Return to overview', route('dashboard'), true));
+            $content .= Ui::panel('Planned changes',
+                $rows ? Ui::table(['Zone', 'Action', 'Custom records', 'Current SOA serial'], $rows) :
+                    Ui::empty('Nothing waiting to publish', 'All configured zones match the publication manifest.'));
+            $content .= '<p class="text-sm text-ink/65 mt-5 mb-6">' . e($description) .
+                ' This preview is read-only. Publication re-reads current database changes, validates BIND zones, and then reloads the server.</p>';
+            $content .= Ui::post('publish',
+                '<button type="submit" class="btn-primary">Validate &amp; publish DNS</button>',
+                '', 'Apply the current complete DNS configuration and reload BIND?');
+            return ['Review publication', $content];
 
         case 'zones':
             $rows = query('SELECT z.id,z.name,z.dirty,z.serial,u.username AS owner,COUNT(r.id) AS records FROM zones z JOIN users u ON u.id=z.owner_id LEFT JOIN records r ON r.zone_id=z.id GROUP BY z.id,z.name,z.dirty,z.serial,u.username ORDER BY z.name')->fetchAll();

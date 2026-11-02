@@ -28,6 +28,7 @@ final class Ui
             if ($user['role'] === 'admin') {
                 $nav .= self::navLink('users', 'Team access', '♙', $current);
                 $nav .= self::navLink('activity', 'Activity log', '≡', $current);
+                $nav .= self::navLink('publish-preview', 'Review publication', '↥', $current);
             }
             $nav .= self::navLink('profile', 'My account', '◉', $current);
         }
