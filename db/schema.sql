@@ -5,6 +5,7 @@ CREATE TABLE users (
     username VARCHAR(80) NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     role ENUM('admin', 'editor', 'viewer') NOT NULL DEFAULT 'viewer',
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
     failed_logins INT UNSIGNED NOT NULL DEFAULT 0,
     locked_until DATETIME NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

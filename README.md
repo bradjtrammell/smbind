@@ -21,7 +21,7 @@ Temporary `feat/*`, `fix/*`, and `rebuild/*` branches are not part of the active
 - Responsive Tailwind CSS operations console with clear navigation, searchable-in-browser zone tables, and keyboard-accessible forms.
 - DNS zone configuration and editing, including SOA parameters and A, AAAA, CAA, CNAME, DS, MX, SSHFP, TLSA, TXT, NS, PTR and SRV records.
 - PDO prepared statements with MySQL 8 or compatible MariaDB.
-- Administrator/editor/viewer roles and per-zone ownership.
+- Administrator/editor/viewer roles, per-zone ownership, and reversible account suspension (revokes sessions on their next request).
 - Argon2id password hashing, session regeneration, CSRF defenses, and login throttling.
 - Two-stage publishing: validate every zone with named-checkzone, replace zone files atomically, validate BIND configuration, then rndc reload. Original files are restored on failure. Deleted zones are tracked in a publication manifest, and the dashboard reports pending deletions even if no zones remain.
 - Activity audit, team management, and password changes.
@@ -112,7 +112,7 @@ The ZIP contains the web application, configuration template, schema, command-li
 
 | Role | Capabilities |
 | --- | --- |
-| Administrator | Manage all zones/users, publish zones, audit history |
+| Administrator | Manage all zones/users, suspend or restore accounts, publish zones, audit history |
 | Editor | Modify only assigned zones, no publishing privileges |
 | Viewer | Read zones and records |
 

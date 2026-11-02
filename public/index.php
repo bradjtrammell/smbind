@@ -38,7 +38,7 @@ function authenticate(): void
     $password = (string) ($_POST['password'] ?? '');
     $row = one('SELECT * FROM users WHERE username = ?', [$username]);
     $locked = $row !== null && $row['locked_until'] !== null && strtotime($row['locked_until'] . ' UTC') > time();
-    $valid = !$locked && $row !== null && password_verify($password, $row['password_hash']);
+    $valid = !$locked && $row !== null && (int) $row['is_active'] === 1 && password_verify($password, $row['password_hash']);
     if (!$valid) {
         if ($row && !$locked) {
             query(
@@ -76,8 +76,8 @@ function handlePost(): never
     }
     $actor = requireUser();
     // Re-check database role on every POST: a revoked administrator must not retain session privileges.
-    $authoritative = one('SELECT id,username,role FROM users WHERE id=?', [$actor['id']]);
-    if (!$authoritative) {
+    $authoritative = one('SELECT id,username,role,is_active FROM users WHERE id=?', [$actor['id']]);
+    if (!$authoritative || (int) $authoritative['is_active'] !== 1) {
         unset($_SESSION['user']);
         throw new RuntimeException('This account has been removed.', 403);
     }
@@ -203,6 +203,27 @@ function handlePost(): never
             query('INSERT INTO users (username,password_hash,role) VALUES (?,?,?)', [$name, password_hash($password, PASSWORD_ARGON2ID), $role]);
             auditSafe('user.create', null, ['username' => $name, 'role' => $role]);
             flash('success', 'Team member created.');
+            redirect('users');
+        case 'set_user_active':
+            requireAdmin();
+            $target = intId($_POST['user_id'] ?? '0');
+            $isActive = (string) ($_POST['active'] ?? '');
+            if (!in_array($isActive, ['0', '1'], true) || $target === (int) $actor['id']) {
+                throw new InvalidArgumentException('Choose another account and a valid access state.');
+            }
+            $account = one('SELECT id,username,role,is_active FROM users WHERE id=?', [$target]);
+            if (!$account) {
+                throw new RuntimeException('User not found.', 404);
+            }
+            if ($isActive === '0' && $account['role'] === 'admin') {
+                $activeAdmins = (int) query("SELECT COUNT(*) FROM users WHERE role='admin' AND is_active=1")->fetchColumn();
+                if ($activeAdmins <= 1) {
+                    throw new InvalidArgumentException('The final active administrator cannot be disabled.');
+                }
+            }
+            query('UPDATE users SET is_active=? WHERE id=?', [(int) $isActive, $target]);
+            auditSafe('user.access', null, ['user_id' => $target, 'active' => (int) $isActive]);
+            flash('success', $isActive === '1' ? 'Team member access restored.' : 'Team member access suspended. Existing sessions are revoked on their next request.');
             redirect('users');
         case 'update_user':
             requireAdmin();
@@ -467,15 +488,28 @@ function page(string $route): array
 
         case 'users':
             requireAdmin();
-            $items = query('SELECT id,username,role,created_at FROM users ORDER BY username')->fetchAll();
+            $items = query('SELECT id,username,role,is_active,created_at FROM users ORDER BY username')->fetchAll();
             $rows = '';
             foreach ($items as $item) {
-                $roleForm = $item['id'] == $actor['id'] ? '<span class="text-xs text-ink/55">Current user</span>' :
+                $self = (int) $item['id'] === (int) $actor['id'];
+                $roleForm = $self ? '<span class="text-xs text-ink/55">Current user</span>' :
                     Ui::post('update_user', '<input type="hidden" name="user_id" value="' . e($item['id']) . '">' .
                         '<div class="flex gap-2 items-center">' .
                         Ui::select('role', 'Role', ['admin' => 'Admin', 'editor' => 'Editor', 'viewer' => 'Viewer'], $item['role']) .
-                        '<button type="submit" class="btn-secondary">Save</button></div>');
+                        '<button type="submit" class="btn-secondary">Save role</button></div>');
+                $enabled = (int) $item['is_active'] === 1;
+                if (!$self) {
+                    $newState = $enabled ? '0' : '1';
+                    $buttonText = $enabled ? 'Suspend access' : 'Restore access';
+                    $roleForm .= Ui::post('set_user_active',
+                        '<input type="hidden" name="user_id" value="' . e($item['id']) . '">' .
+                        '<input type="hidden" name="active" value="' . $newState . '">' .
+                        '<button type="submit" class="mt-3 font-semibold text-sm ' .
+                        ($enabled ? 'text-warn' : 'text-accent') . ' hover:underline">' . $buttonText . '</button>',
+                        '', ($enabled ? 'Suspend ' : 'Restore ') . $item['username'] . ' account access?');
+                }
                 $rows .= '<tr><td class="font-bold">' . e($item['username']) . '</td><td>' . e($item['role']) .
+                    '</td><td>' . ($enabled ? 'Active' : 'Suspended') .
                     '</td><td>' . e($item['created_at']) . '</td><td>' . $roleForm . '</td></tr>';
             }
             $fields = '<div class="grid md:grid-cols-3 gap-5">' .
@@ -484,7 +518,7 @@ function page(string $route): array
                 Ui::select('role', 'Access level', ['viewer' => 'Viewer', 'editor' => 'Editor', 'admin' => 'Administrator'], 'viewer') .
                 '</div><button class="btn-primary mt-6" type="submit">Create team member</button>';
             return ['Team access', Ui::heading('Team access', 'Administrators publish DNS; editors manage their assigned zones; viewers have read-only access.') .
-                '<div class="surface mb-9">' . Ui::table(['Username', 'Role', 'Joined', 'Manage'], $rows) . '</div>' .
+                '<div class="surface mb-9">' . Ui::table(['Username', 'Role', 'Access', 'Joined', 'Manage'], $rows) . '</div>' .
                 Ui::panel('Add team member', Ui::post('create_user', $fields))];
 
         case 'activity':
@@ -523,8 +557,8 @@ try {
         throw new RuntimeException('HTTP method is not supported.', 405);
     }
     if (user()) {
-        $verified = one('SELECT id,username,role FROM users WHERE id=?', [user()['id']]);
-        if (!$verified) {
+        $verified = one('SELECT id,username,role,is_active FROM users WHERE id=?', [user()['id']]);
+        if (!$verified || (int) $verified['is_active'] !== 1) {
             unset($_SESSION['user']);
         } else {
             $_SESSION['user'] = [

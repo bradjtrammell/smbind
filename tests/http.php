@@ -165,6 +165,33 @@ $viewerPreview = sendHttp('/?route=publish-preview', 'GET', [], $viewerCookie);
 checkHttp($viewerPreview['status'] === 403 && !str_contains($viewerPreview['body'], 'Planned changes'),
     'Viewer cannot inspect admin-only publication plan');
 
+// Suspend an account and prove both active sessions and fresh logins are denied.
+$viewer = \Smbind\one("SELECT id FROM users WHERE username='civiewer'");
+$suspend = sendHttp('/', 'POST', [
+    'action' => 'set_user_active', '_token' => $token,
+    'user_id' => (string) $viewer['id'], 'active' => '0',
+], $cookie);
+checkHttp($suspend['status'] === 303 &&
+    (int) \Smbind\one('SELECT is_active FROM users WHERE id=?', [$viewer['id']])['is_active'] === 0,
+    'Administrator can suspend another account');
+$revoked = sendHttp('/?route=dashboard', 'GET', [], $viewerCookie);
+checkHttp($revoked['status'] === 303 && $revoked['location'] === '/?route=login',
+    'Suspension revokes an existing viewer session on the next request');
+$suspendedLogin = sendHttp('/?route=login');
+$refused = sendHttp('/', 'POST', [
+    'action' => 'login', '_token' => tokenFrom($suspendedLogin['body']),
+    'username' => 'civiewer', 'password' => 'Test-only-viewer-password-123',
+], $suspendedLogin['cookie'] ?? '');
+checkHttp($refused['status'] === 303 && $refused['location'] === '/?route=login',
+    'Suspended account cannot log in');
+$restore = sendHttp('/', 'POST', [
+    'action' => 'set_user_active', '_token' => $token,
+    'user_id' => (string) $viewer['id'], 'active' => '1',
+], $cookie);
+checkHttp($restore['status'] === 303 &&
+    (int) \Smbind\one('SELECT is_active FROM users WHERE id=?', [$viewer['id']])['is_active'] === 1,
+    'Administrator can restore access without recreating the user');
+
 $zonePage = sendHttp('/?route=zone&id=' . $zoneId, 'GET', [], $cookie);
 checkHttp($zonePage['status'] === 200 && str_contains($zonePage['body'], 'smoke.example.com'),
     'New zone page renders');
