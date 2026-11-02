@@ -308,11 +308,13 @@ function page(string $route): array
         case 'dashboard':
             $zones = (int) query('SELECT COUNT(*) FROM zones')->fetchColumn();
             $records = (int) query('SELECT COUNT(*) FROM records')->fetchColumn();
-            $pending = (int) query('SELECT COUNT(*) FROM zones WHERE dirty=1')->fetchColumn();
+            $edited = (int) query('SELECT COUNT(*) FROM zones WHERE dirty=1')->fetchColumn();
+            $removed = (int) query('SELECT COUNT(*) FROM published_zones p LEFT JOIN zones z ON z.name=p.name WHERE z.id IS NULL')->fetchColumn();
+            $pending = $edited + $removed;
             $stats = [
                 ['value' => $zones, 'label' => 'Managed zones'],
                 ['value' => $records, 'label' => 'DNS records'],
-                ['value' => $pending, 'label' => 'Zones pending publication'],
+                ['value' => $pending, 'label' => 'Pending DNS changes'],
             ];
             $metrics = '<div class="grid sm:grid-cols-3 border-y border-line mb-10">';
             foreach ($stats as $i => $stat) {
@@ -325,7 +327,7 @@ function page(string $route): array
             $body = Ui::heading('Good to see you, ' . $actor['username'], 'Your authoritative DNS workspace at a glance.', $action) . $metrics;
             if ($pending > 0) {
                 $content = '<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><h2 class="text-xl font-bold">Unpublished changes</h2>' .
-                    '<p class="text-sm text-ink/65 mt-2">' . $pending . ' zones need validation and a BIND reload.</p></div>';
+                    '<p class="text-sm text-ink/65 mt-2">' . $edited . ' modified zone(s), ' . $removed . ' deleted zone(s) await validation and BIND reload.</p></div>';
                 $content .= $actor['role'] === 'admin' ?
                     Ui::post('publish', '<button class="btn-primary" type="submit">Validate &amp; publish DNS</button>', '', 'Publish all configured DNS zones and reload BIND?') :
                     '<p class="text-sm text-ink/65">An administrator must publish these changes.</p>';

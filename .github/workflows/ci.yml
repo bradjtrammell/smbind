@@ -54,6 +54,13 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y bind9-utils
       - name: Exercise PDO, real BIND validation, publish, rollback and removal
         run: php tests/integration.php
+      - name: Exercise HTTP authentication, CSRF, zone and record CRUD
+        run: |
+          php -S 127.0.0.1:18080 -t public > /tmp/smbind-http-ci.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          sleep 1
+          php tests/http.php || { cat /tmp/smbind-http-ci.log; exit 1; }
   css:
     runs-on: ubuntu-latest
     steps:
