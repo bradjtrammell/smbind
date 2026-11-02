@@ -77,7 +77,7 @@
 
    The `2` in `2770` sets setgid on the directories so newly staged and atomically renamed files inherit group `bind`; `0640` files remain readable by the authoritative daemon. **Confirm your actual PHP-FPM and BIND service identities before using these commands.** Keep the zone directory and managed include dedicated to SMBind only, and configure `SMBIND_INCLUDE_FILE=/etc/bind/smbind-managed/zones.conf`. Add `include "/etc/bind/smbind-managed/zones.conf";` to BIND's main `named.conf` once.
 
-   7. Create `SMBIND_ZONE_DIR` outside the web root. Permit the PHP publishing identity to atomically replace files there and to replace `SMBIND_INCLUDE_FILE` (also outside the web root). Set up tightly scoped access to RNDC keys. Never give the web worker unrestricted root/sudo permissions. **Review permissions on every deployment.** The include file must exist and be readable by BIND. Ensure the generated include is explicitly present exactly once in the correct BIND `named.conf`. Do not point SMBind at a configuration file shared with manually managed zones. The include file must initially be **empty** or already contain an SMBind-generated header; the zone directory must be dedicated, since existing non-SMBind zone files are rejected to avoid destructive overwrites.
+   Keep `SMBIND_ZONE_DIR` outside the web root. Permit the PHP publishing identity to atomically replace files there and to replace `SMBIND_INCLUDE_FILE` (also outside the web root). Set up tightly scoped access to RNDC keys. Never give the web worker unrestricted root/sudo permissions. **Review permissions on every deployment.** The include file must exist and be readable by BIND. Ensure the generated include is explicitly present exactly once in the correct BIND `named.conf`. Do not point SMBind at a configuration file shared with manually managed zones. The include file must initially be **empty** or already contain an SMBind-generated header; the zone directory must be dedicated, since existing non-SMBind zone files are rejected to avoid destructive overwrites.
 
 8. Run the **non-destructive preflight** in the same environment as the PHP process:
 
@@ -89,7 +89,7 @@
 
 ### Packaged deployment and checksum
 
-The CI `css` job assembles `smbind-<version>.zip` and `smbind-<version>.zip.sha256` with `public/assets/app.css` already compiled. Download both from the successful workflow's **Artifacts** section. Verify integrity *before extracting*:
+The passing CI pipeline also publishes a **versioned GitHub prerelease** under [Releases](https://github.com/bradjtrammell/smbind/releases) after all PHP matrix, MySQL/BIND/HTTP integration and CSS jobs succeed on `master`. Development builds remain marked **prerelease**, not stable. The CI `css` job assembles `smbind-<version>.zip` and `smbind-<version>.zip.sha256` with `public/assets/app.css` already compiled. Download both from the successful workflow's **Artifacts** section. Verify integrity *before extracting*:
 
 ```bash
 sha256sum -c smbind-1.0.0-dev.2.zip.sha256

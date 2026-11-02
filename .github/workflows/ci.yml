@@ -98,3 +98,35 @@ jobs:
             dist/smbind-*.zip.sha256
           if-no-files-found: error
           retention-days: 30
+
+  prerelease:
+    name: Publish verified development prerelease
+    needs: [php, integration, css]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: smbind-compiled-app
+          path: dist
+      - name: Validate ZIP checksum and publish versioned prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(tr -d '\r\n' < VERSION)"
+          tag="v$version"
+          (
+            cd dist
+            sha256sum -c "smbind-$version.zip.sha256"
+            unzip -t "smbind-$version.zip" | tail -n 1
+          )
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::notice::Release $tag already exists. No files were replaced."
+            exit 0
+          fi
+          gh release create "$tag"             "dist/smbind-$version.zip"             "dist/smbind-$version.zip.sha256"             --repo "$GITHUB_REPOSITORY"             --target "$GITHUB_SHA"             --title "SMBind $version — PHP 8.2+ development prerelease"             --notes "Complete clean-install PHP 8.2+ / PDO MySQL / Tailwind CSS compiled build. Development prerelease: CI validated, not qualified on production BIND. See README and docs/REBUILD_INVENTORY.md."             --prerelease
