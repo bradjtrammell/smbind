@@ -7,27 +7,32 @@ fi
 for executable in named named-checkzone named-checkconf rndc dig openssl; do
   command -v "$executable" >/dev/null || { echo "Missing $executable" >&2; exit 2; }
 done
-root="$(mktemp -d -t smbind-live-XXXXXX)"
+root="$(sudo mktemp -d /etc/bind/smbind-ci-XXXXXX)"
+zone_dir="$(sudo mktemp -d /var/cache/bind/smbind-ci-XXXXXX)"
+sudo chown "$(id -un):$(id -gn)" "$root" "$zone_dir"
+sudo chmod 0755 "$root" "$zone_dir"
 named_pid=""
 cleanup() {
   if [[ -n "$named_pid" ]]; then
     kill "$named_pid" 2>/dev/null || true
     wait "$named_pid" 2>/dev/null || true
   fi
-  rm -rf "$root"
+  # Only delete directories created in this test and never other BIND data.
+  if [[ "$root" == /etc/bind/smbind-ci-* && "$zone_dir" == /var/cache/bind/smbind-ci-* ]]; then
+    sudo rm -rf -- "$root" "$zone_dir"
+  fi
 }
 trap cleanup EXIT
-mkdir -m 0700 "$root/zones"
 touch "$root/zones.conf"
 secret="$(openssl rand -base64 32)"
 cat >"$root/named.conf" <<CONF
 options {
-  directory "$root";
+  directory "$zone_dir";
   listen-on port 19553 { 127.0.0.1; };
   listen-on-v6 { none; };
   recursion no;
   dnssec-validation no;
-  pid-file "$root/named.pid";
+  pid-file "$zone_dir/named.pid";
 };
 key "smbindci" {
   algorithm hmac-sha256;
@@ -54,7 +59,7 @@ cat >"$root/rndc-run" <<SCRIPT
 exec "$(command -v rndc)" -c "$root/rndc.conf" "\$@"
 SCRIPT
 chmod 0700 "$root/rndc-run"
-export SMBIND_ZONE_DIR="$root/zones"
+export SMBIND_ZONE_DIR="$zone_dir"
 export SMBIND_INCLUDE_FILE="$root/zones.conf"
 export SMBIND_NAMED_CONF="$root/named.conf"
 export SMBIND_NAMED_CHECKZONE="$(command -v named-checkzone)"
@@ -85,5 +90,5 @@ php tests/live-bind-fixture.php delete
 php bin/publish.php
 actual="$(dig @127.0.0.1 -p 19553 live-ci.example.test A +short)"
 [[ -z "$actual" ]] || { echo "Deleted zone still answers: '$actual'" >&2; exit 1; }
-[[ ! -e "$root/zones/live-ci.example.test.zone" ]] || { echo "Removed zone file still present" >&2; exit 1; }
+[[ ! -e "$zone_dir/live-ci.example.test.zone" ]] || { echo "Removed zone file still present" >&2; exit 1; }
 echo "PASS: live authoritative BIND published, reloaded, updated, and removed deleted zone."
