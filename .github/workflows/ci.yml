@@ -1,7 +1,7 @@
 name: SMBind verification
 on:
   push:
-    branches: [master, 'rebuild/**', 'feat/**', 'fix/**']
+    branches: [master, dev]
   pull_request:
 
 jobs:
