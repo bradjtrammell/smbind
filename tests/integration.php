@@ -120,6 +120,29 @@ try {
     verify(str_contains($original, 'TLSA 3 1 1 ' . strtoupper(str_repeat('ab', 32))), 'BIND validates TLSA');
     verify((int) $db->query('SELECT dirty FROM zones')->fetchColumn() === 0, 'Successful publish clears dirty state');
     verify((int) $db->query('SELECT COUNT(*) FROM published_zones')->fetchColumn() === 1, 'Managed zone manifest saved');
+
+    // A symlink replacing a previously managed file must not give the
+    // publisher write access to an unrelated target, even if the manifest
+    // claims that zone name.
+    $saved = $zoneFile . '.saved-test';
+    $unrelated = $path . '/unrelated.txt';
+    file_put_contents($unrelated, 'Unrelated file must never change');
+    if (!rename($zoneFile, $saved) || !symlink($unrelated, $zoneFile)) {
+        throw new RuntimeException('Could not construct symlink regression fixture.');
+    }
+    $blockedLink = false;
+    try {
+        $publisher->publish();
+    } catch (RuntimeException) {
+        $blockedLink = true;
+    } finally {
+        unlink($zoneFile);
+        rename($saved, $zoneFile);
+    }
+    verify($blockedLink && file_get_contents($unrelated) === 'Unrelated file must never change',
+        'Symlink zone output is refused without modifying its target');
+    unlink($unrelated);
+
     // Refuse to touch a managed zone whose previous contents cannot be read.
     chmod($zoneFile, 0000);
     $refusedBackup = false;
