@@ -105,7 +105,7 @@ php tests/run.php
 npm run build
 ```
 
-GitHub CI lints on PHP 8.2–8.5, runs deterministic DNS validation tests, and compiles the UI. It also exercises login, sessions, CSRF rejection, creation and deletion through the real PHP HTTP entry point against disposable MySQL. An additional disposable MySQL 8.4 job uses real BIND zone/configuration validators while simulating RNDC success/failure to test publishing, file rollback, and deleted-zone cleanup. These checks do **not** replace a live authoritative DNS reload test, real browser/a11y testing, production permission testing, or install/upgrade qualification.
+GitHub CI lints on PHP 8.2–8.5, runs deterministic DNS validation tests, and compiles the UI. It also exercises login, sessions, CSRF rejection, creation and deletion through the real PHP HTTP entry point against disposable MySQL. Additional disposable MySQL 8.4 integration jobs on PHP 8.2 and 8.4 use real BIND zone/configuration validators while simulating RNDC success/failure to test publishing, file rollback, and deleted-zone cleanup. These checks do **not** replace a live authoritative DNS reload test, real browser/a11y testing, production permission testing, or install/upgrade qualification.
 
 ## Design
 

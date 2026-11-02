@@ -131,6 +131,30 @@ if (!$z) {
     throw new RuntimeException('Cannot continue record CRUD without a zone.');
 }
 $zoneId = (int) $z['id'];
+// Authorization regression: viewer can read but must not mutate another user's zone.
+\Smbind\query('INSERT INTO users (username,password_hash,role) VALUES (?,?,?)', [
+    'civiewer', password_hash('Test-only-viewer-password-123', PASSWORD_ARGON2ID), 'viewer'
+]);
+$viewerLogin = sendHttp('/?route=login');
+$viewerCookie = $viewerLogin['cookie'] ?? '';
+$viewerAuth = sendHttp('/', 'POST', [
+    'action' => 'login', '_token' => tokenFrom($viewerLogin['body']),
+    'username' => 'civiewer', 'password' => 'Test-only-viewer-password-123',
+], $viewerCookie);
+$viewerCookie = $viewerAuth['cookie'] ?: $viewerCookie;
+checkHttp($viewerAuth['status'] === 303, 'Viewer login succeeds');
+$viewerZone = sendHttp('/?route=zone&id=' . $zoneId, 'GET', [], $viewerCookie);
+checkHttp($viewerZone['status'] === 200 && !str_contains($viewerZone['body'], 'Delete zone permanently'),
+    'Viewer may inspect zone without destructive controls');
+$viewerEdit = sendHttp('/', 'POST', [
+    'action' => 'save_record', '_token' => tokenFrom($viewerZone['body']),
+    'zone_id' => (string) $zoneId, 'host' => 'unauthorized', 'type' => 'A',
+    'value' => '192.0.2.55', 'ttl' => '3600',
+], $viewerCookie);
+checkHttp($viewerEdit['status'] === 303 &&
+    \Smbind\one('SELECT id FROM records WHERE zone_id=? AND host=?', [$zoneId, 'unauthorized']) === null,
+    'Viewer cannot modify DNS using crafted POST');
+
 $zonePage = sendHttp('/?route=zone&id=' . $zoneId, 'GET', [], $cookie);
 checkHttp($zonePage['status'] === 200 && str_contains($zonePage['body'], 'smoke.example.com'),
     'New zone page renders');
