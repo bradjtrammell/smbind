@@ -12,7 +12,7 @@ jobs:
       matrix:
         php: ['8.2', '8.3', '8.4', '8.5']
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:
@@ -48,7 +48,7 @@ jobs:
       SMBIND_DB_USER: root
       SMBIND_DB_PASS: local-ci-root-only
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
@@ -87,7 +87,7 @@ jobs:
       SMBIND_DB_USER: root
       SMBIND_DB_PASS: local-ci-root-only
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
@@ -102,10 +102,11 @@ jobs:
   css:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version: '24'
+          package-manager-cache: false
       - run: npm install --no-audit --no-fund
       - run: npm run build
       - run: test -s public/assets/app.css
@@ -124,7 +125,7 @@ jobs:
           (cd dist && sha256sum "smbind-$version.zip" > "smbind-$version.zip.sha256")
           unzip -t "dist/smbind-$version.zip" | tail -1
       - name: Upload packaged application and checksum
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: smbind-compiled-app
           path: |
@@ -141,8 +142,8 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
           name: smbind-compiled-app
           path: dist
