@@ -67,7 +67,17 @@
 
 6. Set the HTTP server document root to `public/`. For Nginx deployments, [`ops/nginx-loopback.conf`](ops/nginx-loopback.conf) is a loopback-only PHP-FPM virtual-host starting point; review PHP-FPM socket and installation path before enabling. For local **development only**, use `php -S 127.0.0.1:8080 -t public`.
 
-7. Create `SMBIND_ZONE_DIR` outside the web root. Permit the PHP publishing identity to atomically replace files there and to replace `SMBIND_INCLUDE_FILE` (also outside the web root). Set up tightly scoped access to RNDC keys. Never give the web worker unrestricted root/sudo permissions. **Review permissions on every deployment.** The include file must exist and be readable by BIND. Add `include "/etc/bind/smbind-zones.conf";` to the correct BIND `named.conf` once, substituting your configured absolute path. Do not point SMBind at a configuration file shared with manually managed zones. The include file must initially be **empty** or already contain an SMBind-generated header; the zone directory must be dedicated, since existing non-SMBind zone files are rejected to avoid destructive overwrites.
+7. **Prepare dedicated publisher-owned directories.** On Ubuntu/Debian with Nginx/PHP-FPM running as `www-data` and BIND running as group `bind`, a concrete example is:
+
+   ```bash
+   sudo install -d -o www-data -g bind -m 2770 /var/lib/smbind/zones
+   sudo install -d -o www-data -g bind -m 2770 /etc/bind/smbind-managed
+   sudo install -o www-data -g bind -m 0640 /dev/null /etc/bind/smbind-managed/zones.conf
+   ```
+
+   The `2` in `2770` sets setgid on the directories so newly staged and atomically renamed files inherit group `bind`; `0640` files remain readable by the authoritative daemon. **Confirm your actual PHP-FPM and BIND service identities before using these commands.** Keep the zone directory and managed include dedicated to SMBind only, and configure `SMBIND_INCLUDE_FILE=/etc/bind/smbind-managed/zones.conf`. Add `include "/etc/bind/smbind-managed/zones.conf";` to BIND's main `named.conf` once.
+
+   7. Create `SMBIND_ZONE_DIR` outside the web root. Permit the PHP publishing identity to atomically replace files there and to replace `SMBIND_INCLUDE_FILE` (also outside the web root). Set up tightly scoped access to RNDC keys. Never give the web worker unrestricted root/sudo permissions. **Review permissions on every deployment.** The include file must exist and be readable by BIND. Ensure the generated include is explicitly present exactly once in the correct BIND `named.conf`. Do not point SMBind at a configuration file shared with manually managed zones. The include file must initially be **empty** or already contain an SMBind-generated header; the zone directory must be dedicated, since existing non-SMBind zone files are rejected to avoid destructive overwrites.
 
 8. Run the **non-destructive preflight** in the same environment as the PHP process:
 
