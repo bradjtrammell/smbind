@@ -119,7 +119,7 @@ sha256sum -c smbind-1.0.0-dev.3.zip.sha256
 unzip -t smbind-1.0.0-dev.3.zip
 ```
 
-The next ZIP, published only after promotion of dev.3 to `master`, contains the web application, configuration template, schema upgrade, command-line tools, documentation, and a PHP-FPM/Nginx example. It does not provision a database, alter DNS configuration, or create credentials automatically. **The GitHub Actions artifact is a verified build artifact, not evidence of successful deployment on your host.**
+The next ZIP, published only after promotion of dev.3 to `master`, contains the web application, configuration template, schema upgrade, command-line tools, documentation, and a PHP-FPM/Nginx example. Each build also includes a machine-readable `BUILD_INFO.json` with the version and exact source commit; `php bin/doctor.php` verifies it matches `VERSION`. It does not provision a database, alter DNS configuration, or create credentials automatically. **The GitHub Actions artifact is a verified build artifact, not evidence of successful deployment on your host.**
 
 ## Permissions
 

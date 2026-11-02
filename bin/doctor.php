@@ -35,6 +35,17 @@ foreach (['pdo_mysql', 'session', 'filter', 'json'] as $extension) {
     $report(extension_loaded($extension), "PHP extension: " . $extension);
 }
 
+$buildInfo = dirname(__DIR__) . '/BUILD_INFO.json';
+if (is_file($buildInfo)) {
+    $manifest = json_decode((string) file_get_contents($buildInfo), true);
+    $expectedVersion = trim((string) file_get_contents(dirname(__DIR__) . '/VERSION'));
+    $report(is_array($manifest) && ($manifest['version'] ?? null) === $expectedVersion &&
+        preg_match('/^[a-f0-9]{40}$/D', (string) ($manifest['commit'] ?? '')) === 1,
+        'Packaged build provenance matches VERSION and contains an exact Git commit');
+} else {
+    $report(true, 'Source checkout mode (no packaged BUILD_INFO.json)');
+}
+
 $compiled = dirname(__DIR__) . '/public/assets/app.css';
 $report(is_file($compiled) && filesize($compiled) > 1000, 'Compiled Tailwind stylesheet: public/assets/app.css');
 

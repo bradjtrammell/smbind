@@ -90,10 +90,12 @@ Unused legacy files remain discoverable, can be accidentally deployed, and can i
 
 - `public/`: new HTTP application and frontend assets (web document root).
 - `src/`: dependency-free PHP application, DNS validation, zone rendering and BIND publishing.
-- `db/`: new PDO MySQL schema; no legacy tables.
-- `bin/`: CLI administrator bootstrap and explicit DNS publish command.
-- `assets/`: Tailwind 4 source, compiled during deployment.
-- `tests/` and `.github/workflows/`: automated verification.
+- `db/`: new PDO MySQL schema, plus the additive upgrade between the new dev.2 and dev.3 releases; no legacy tables or historical migrations.
+- `bin/`: CLI administrator bootstrap, non-destructive preflight, read-only DNS publication plan, and explicit DNS publish command.
+- `assets/`: Tailwind 4 source, compiled in the release pipeline and shipped as CSS in the versioned ZIP.
+- `ops/`: loopback-only Nginx and PHP-FPM configuration example.
+- `tests/` and `.github/workflows/`: PHP 8.2–8.5, MySQL, HTTP, schema-upgrade, live BIND, DNS and package verification.
+- `docs/RELEASE_NOTES_1.0.0-dev.3.md`: ongoing dev-only changes and qualification requirements.
 - `LICENSE`: original unmodified copyright license document.
 
-**Verification remains in progress.** File disposition is verified against the Git tree; it does not prove the new application is production-ready.
+**Verification:** All historical file dispositions are tracked in the Git tree, and automated CI covers current PHP, MySQL, DNS, live BIND and build workflows. Production-host deployment, real PHP-FPM/Nginx acceptance, operator permissions and browser accessibility must still be qualified before a stable release.

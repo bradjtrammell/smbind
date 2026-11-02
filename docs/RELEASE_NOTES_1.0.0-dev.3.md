@@ -18,7 +18,7 @@ Branch: dev. master remains at released v1.0.0-dev.2 until tested promotion.
 - PHP 8.2–8.5 lint and DNS tests.
 - MySQL 8.4 / PDO / HTTP authentication, session and authorization tests.
 - Actual isolated BIND daemon, RNDC reload, authoritative DNS answers, rollback.
-- CSS compilation and full application ZIP build.
+- CSS compilation, full application ZIP and checksum, and Git SHA-verified package provenance.
 - Real-host PHP-FPM/Nginx, permissions, operational rollback, browser accessibility still host-dependent.
 
 Run the schema upgrade once after database backup for existing dev.2 installs. Fresh installs use db/schema.sql.
