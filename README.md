@@ -7,6 +7,15 @@
 > [!IMPORTANT]
 > **A clean-slate rebuild.** This is a new application targeting PHP 8.2+, PDO MySQL, Tailwind CSS 4, and BIND 9. It does not read or migrate the historical SMBind tables or deployment files.
 
+## Branch and release policy
+
+Only two active branches are maintained:
+
+- **`dev`** — integration branch for all ongoing development, bug fixes, UI work, and testing. Commit work here and require the existing PHP, database, HTTP, DNS, and frontend verification before promoting.
+- **`master`** — release branch. Promote tested changes from `dev` through a pull request. The GitHub CI workflow publishes the versioned prerelease artifact from `master` only, after all required jobs pass.
+
+Temporary `feat/*`, `fix/*`, and `rebuild/*` branches are not part of the active workflow. The historical source remains available through Git commits, tags, and the per-file rebuild inventory.
+
 ## Features
 
 - Responsive Tailwind CSS operations console with clear navigation, searchable-in-browser zone tables, and keyboard-accessible forms.
