@@ -65,6 +65,8 @@ jobs:
           trap 'kill "$pid" 2>/dev/null || true' EXIT
           sleep 1
           php tests/http.php || { cat /tmp/smbind-http-ci.log; exit 1; }
+      - name: Verify dev.2 database upgrade preserves accounts
+        run: php tests/upgrade.php
   live_bind:
     name: Live isolated BIND authoritative server
     runs-on: ubuntu-latest
